@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Iniciar sesión · Sistema Escolar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/print.css" media="print">
+  <style>
+    body {
+      display: grid;
+      place-items: center;
+      background:
+        linear-gradient(135deg, #0b2b44 0%, #123c5b 45%, #1d5f89 100%);
+      padding: var(--sp-4);
+      min-height: 100vh;
+      position: relative;
+      overflow: hidden;
+    }
+    body::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        radial-gradient(circle at 15% 20%, rgba(127,185,224,.12) 0 22%, transparent 22.5%),
+        radial-gradient(circle at 88% 80%, rgba(44,127,184,.15) 0 28%, transparent 28.5%);
+      pointer-events: none;
+    }
+    .login-shell {
+      width: min(440px, 100%);
+      background: var(--bg-surface);
+      border-radius: var(--r-xl);
+      box-shadow: var(--sh-xl);
+      padding: var(--sp-8) var(--sp-6);
+      position: relative;
+      z-index: 1;
+      animation: enter .5s var(--t-base);
+    }
+    @keyframes enter {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: none; }
+    }
+    .login-logo {
+      display: flex; flex-direction: column; align-items: center;
+      gap: var(--sp-3);
+      margin-bottom: var(--sp-6);
+    }
+    .login-logo .logo-circle {
+      width: 64px; height: 64px;
+      border-radius: var(--r-lg);
+      background: linear-gradient(135deg, var(--c-brand-500), var(--c-brand-600));
+      display: grid; place-items: center;
+      color: #fff; font-size: 1.8rem;
+      box-shadow: 0 8px 24px rgba(44,127,184,.3);
+    }
+    .login-logo h1 {
+      font-size: var(--fs-lg);
+      color: var(--c-brand-900);
+      font-weight: 700;
+      letter-spacing: -.02em;
+      text-align: center;
+    }
+    .login-logo p {
+      font-size: var(--fs-xs);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      font-weight: 600;
+      margin-top: -4px;
+    }
+
+    .login-msg {
+      padding: 10px var(--sp-3);
+      border-radius: var(--r-md);
+      background: var(--c-danger-bg);
+      color: var(--c-danger-fg);
+      font-size: var(--fs-sm); font-weight: 500;
+      display: none; align-items: center; gap: var(--sp-2);
+      margin-bottom: var(--sp-4);
+      border-left: 3px solid var(--c-danger);
+    }
+    .login-msg.show { display: flex; animation: shake .4s; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    .pwd-toggle {
+      position: absolute; right: 4px; top: 50%;
+      transform: translateY(-50%);
+      width: 34px; height: 34px; border-radius: var(--r-md);
+      display: grid; place-items: center;
+      color: var(--text-muted);
+      transition: all var(--t-fast);
+      cursor: pointer;
+    }
+    .pwd-toggle:hover { background: var(--bg-hover); color: var(--c-brand-500); }
+    .pwd-wrap { position: relative; }
+    .pwd-wrap .input { padding-right: 44px; }
+
+    .login-extra {
+      display: flex; justify-content: flex-end;
+      margin-top: -8px;
+      margin-bottom: var(--sp-4);
+    }
+    .forgot {
+      color: var(--c-brand-500);
+      font-weight: 600;
+      font-size: var(--fs-sm);
+      background: none; border: none; cursor: pointer;
+      transition: color var(--t-fast);
+    }
+    .forgot:hover { color: var(--c-brand-600); text-decoration: underline; }
+
+    .login-footer-links {
+      margin-top: var(--sp-5);
+      padding-top: var(--sp-4);
+      border-top: 1px solid var(--border);
+      display: flex; justify-content: center; gap: var(--sp-4);
+      font-size: var(--fs-xs);
+    }
+    .login-footer-links a {
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: color var(--t-fast);
+    }
+    .login-footer-links a:hover { color: var(--c-brand-500); }
+
+    .login-version {
+      text-align: center;
+      margin-top: var(--sp-4);
+      color: var(--text-muted);
+      font-size: var(--fs-xs);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-shell" role="main">
+    <div class="login-logo">
+      <div class="logo-circle"><i class="fas fa-school"></i></div>
+      <h1 id="loginInstName">Sistema Escolar</h1>
+      <p>Portal institucional</p>
+    </div>
+
+    <form id="loginForm" novalidate>
+      <div class="login-msg" id="loginMsg" role="alert">
+        <i class="fas fa-circle-exclamation"></i>
+        <span id="loginMsgText"></span>
+      </div>
+
+      <div class="field">
+        <label for="usuario">Usuario o matrícula</label>
+        <div class="input-icon">
+          <i class="fas fa-user"></i>
+          <input type="text" class="input" id="usuario" name="usuario"
+                 placeholder="Ingresa tu usuario o matrícula"
+                 autocomplete="username" spellcheck="false" required autofocus>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="password">Contraseña</label>
+        <div class="pwd-wrap">
+          <input type="password" class="input" id="password" name="password"
+                 placeholder="Ingresa tu contraseña"
+                 autocomplete="current-password" required>
+          <button type="button" class="pwd-toggle" id="pwdToggle"
+                  aria-label="Mostrar contraseña" title="Mostrar contraseña">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="login-extra">
+        <button type="button" class="forgot" id="forgotBtn">¿Olvidaste tu contraseña?</button>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" style="width:100%">
+        <i class="fas fa-right-to-bracket"></i>
+        <span>Iniciar sesión</span>
+      </button>
+    </form>
+
+    <div class="login-footer-links">
+      <a id="privacyLink">Aviso de privacidad</a>
+      <a id="helpLink">Ayuda</a>
+      <a id="contactLink">Contacto</a>
+    </div>
+
+    <div class="login-version">Versión 1.0.0 · © 2026</div>
+  </div>
+
+  <script type="module" src="js/pages/login.js"></script>
+</body>
+</html>

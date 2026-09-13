@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema Escolar · Colegio Papu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/print.css" media="print">
+  <link rel="stylesheet" href="css/print.css" media="print">
+</head>
+<body>
+
+  <a href="#view" class="skip-link">Ir al contenido principal</a>
+
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar" aria-label="Menú lateral"></aside>
+
+    <div class="app-main-area">
+      <header class="app-header" role="banner">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Abrir menú" aria-expanded="false">
+          <i class="fas fa-bars"></i>
+        </button>
+
+        <h1 class="header-title" id="headerTitle" style="font-size:var(--fs-md);font-weight:700;color:var(--c-brand-900);margin:0">Inicio</h1>
+
+        <div class="app-search" role="search">
+          <i class="fas fa-search" aria-hidden="true"></i>
+          <input type="search" id="globalSearch" placeholder="Buscar en el sistema… (Ctrl+K)"
+                 aria-label="Búsqueda global" autocomplete="off" />
+        </div>
+
+        <div class="header-actions">
+            <button class="header-icon-btn" id="themeBtn" aria-label="Cambiar tema" title="Modo claro/oscuro">
+  <i class="fas fa-moon"></i>
+</button>
+          <div id="periodSelector" aria-label="Selector de ciclo y periodo"></div>
+
+          <button class="header-icon-btn" id="notifBtn" aria-label="Notificaciones" title="Notificaciones">
+            <i class="fas fa-bell" aria-hidden="true"></i>
+            <span class="dot" id="notifDot">0</span>
+          </button>
+
+          <div class="dropdown">
+            <button class="user-chip" id="userChip" aria-haspopup="true" aria-expanded="false" aria-label="Menú de usuario">
+              <span class="avatar" id="userAvatar" aria-hidden="true">--</span>
+              <span class="info">
+                <strong id="userName">Usuario</strong>
+                <small id="userRole">rol</small>
+              </span>
+              <i class="fas fa-chevron-down" aria-hidden="true"></i>
+            </button>
+            <div class="dropdown-menu" id="userMenu" role="menu">
+              <button class="dropdown-item" id="miPerfil" role="menuitem">
+                <i class="fas fa-user" aria-hidden="true"></i> Mi perfil
+              </button>
+              <button class="dropdown-item" id="miConfig" role="menuitem">
+                <i class="fas fa-gear" aria-hidden="true"></i> Configuración
+              </button>
+              <div class="dropdown-divider" role="separator"></div>
+              <button class="dropdown-item danger" id="logoutBtn" role="menuitem">
+                <i class="fas fa-right-from-bracket" aria-hidden="true"></i> Cerrar sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <nav class="breadcrumbs" id="breadcrumbs" aria-label="Ruta de navegación"></nav>
+
+      <main class="app-main" id="view" role="main" tabindex="-1"></main>
+
+      <footer class="app-footer" role="contentinfo">
+        <div>© 2026 Colegio Papu · Sistema Escolar Integrado</div>
+        <div class="footer-links">
+          <a id="footerPrivacy" tabindex="0" role="button">Aviso de privacidad</a>
+          <a id="footerHelp" tabindex="0" role="button">Ayuda</a>
+          <a id="footerContact" tabindex="0" role="button">Contacto</a>
+          <span>Versión 1.0.0</span>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+/* ============================================================
+   print.css — Estilos para impresión de documentos oficiales
+   ============================================================ */
+
+@media print {
+  /* Ocultar todo lo que no es el documento */
+  body { background: #fff !important; }
+  .sidebar,
+  .app-header,
+  .breadcrumbs,
+  .app-footer,
+  .page-head,
+  .btn,
+  .header-icon-btn,
+  .user-chip,
+  .mobile-menu-btn,
+  .period-selector,
+  .dropdown,
+  .toast-container,
+  .modal-overlay { display: none !important; }
+
+  .app-layout { grid-template-columns: 1fr !important; }
+  .app-main-area { margin-left: 0 !important; }
+  .app-main { padding: 0 !important; max-width: 100% !important; }
+
+  /* Tarjetas de documento */
+  .card { box-shadow: none !important; border: none !important; padding: 0 !important; }
+  #boleta { max-width: 100% !important; padding: 20mm !important; }
+
+  /* Colores exactos */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  /* Tipografía para papel */
+  body { font-size: 11pt; color: #000; }
+  .table { font-size: 10pt; }
+  .table thead th { background: #f0f0f0 !important; color: #000 !important; border-color: #999 !important; }
+  .table tbody td { border-color: #ccc !important; }
+
+  /* Saltos de página */
+  .page-break { page-break-before: always; }
+  .avoid-break { page-break-inside: avoid; }
+
+  /* Enlaces sin URL */
+  a { color: #000; text-decoration: none; }
+  a[href]::after { content: ''; }
+
+  /* Encabezado de impresión */
+  @page {
+    margin: 15mm;
+    size: A4;
+  }
+
+  /* Footer de impresión */
+  body::after {
+    content: 'Documento generado por el Sistema Escolar · ' counter(page);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 8pt;
+    color: #666;
+    padding: 4mm 0;
+  }
+}
