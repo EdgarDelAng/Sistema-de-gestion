@@ -11,6 +11,9 @@ export async function renderHorarios(container) {
   if (Auth.hasRole('alumno')) {
     return renderMiHorario(container);
   }
+  if (Auth.hasRole('profesor')) {
+    return renderMiHorarioProfesor(container);
+  }
 
   let vista = 'general';
 
@@ -263,6 +266,52 @@ export async function renderHorarios(container) {
   if (btnAgregar) btnAgregar.addEventListener('click', () => formClase(null, () => renderVista()));
 
   renderVista();
+}
+
+async function renderMiHorarioProfesor(container) {
+  const profesorId = Number(Auth.user.profesorId);
+  container.innerHTML = `
+    <div class="page-head">
+      <div><h1 class="page-title"><i class="fas fa-clock"></i> Mi horario</h1><p class="page-sub">Clases y grupos que tienes asignados esta semana</p></div>
+    </div>
+    <div class="skeleton-block" style="height:400px"></div>`;
+
+  if (!profesorId) {
+    container.innerHTML += `<div class="card">${emptyState({ icon: 'fa-calendar-xmark', title: 'Sin ficha docente', message: 'Tu cuenta no está vinculada a un profesor.' })}</div>`;
+    return;
+  }
+
+  const [horarios, materias, grupos] = await Promise.all([
+    HorariosService.porProfesor(profesorId),
+    CatalogosService.materias(),
+    GruposService.todos()
+  ]);
+
+  const totalGrupos = new Set(horarios.map((h) => h.grupoId)).size;
+  const totalMaterias = new Set(horarios.map((h) => h.materiaId)).size;
+  container.innerHTML = `
+    <div class="page-head">
+      <div><h1 class="page-title"><i class="fas fa-clock"></i> Mi horario</h1><p class="page-sub">Clases y grupos que tienes asignados esta semana</p></div>
+    </div>
+    <div class="stats-grid" style="margin-bottom:var(--sp-4)">
+      <div class="stat-card"><div class="stat-icon"><i class="fas fa-calendar-check"></i></div><div><div class="stat-value">${horarios.length}</div><div class="stat-label">Clases por semana</div></div></div>
+      <div class="stat-card success"><div class="stat-icon"><i class="fas fa-users"></i></div><div><div class="stat-value">${totalGrupos}</div><div class="stat-label">Grupos</div></div></div>
+      <div class="stat-card warning"><div class="stat-icon"><i class="fas fa-book-open"></i></div><div><div class="stat-value">${totalMaterias}</div><div class="stat-label">Materias</div></div></div>
+    </div>
+    <div class="card">
+      ${!horarios.length ? emptyState({ icon: 'fa-calendar-xmark', title: 'Sin clases asignadas', message: 'No tienes clases programadas en el horario actual.' }) : `
+      <div class="card-header"><h3 class="card-title"><i class="fas fa-calendar-week"></i> Semana académica</h3></div>
+      <div class="table-scroll"><table class="table" style="font-size:var(--fs-sm)">
+        <thead><tr><th>Hora</th>${DIAS.map((d) => `<th style="text-align:center">${d}</th>`).join('')}</tr></thead>
+        <tbody>${HORAS.map((hora) => `<tr><td><strong>${hora}</strong></td>${DIAS.map((dia) => {
+          const c = horarios.find((h) => h.dia === dia && h.horaInicio === hora);
+          if (!c) return `<td style="text-align:center;color:var(--text-muted)">—</td>`;
+          const mat = materias.find((m) => m.id === c.materiaId);
+          const gr = grupos.find((g) => g.id === c.grupoId);
+          return `<td style="text-align:center;background:var(--bg-muted);padding:8px;border-radius:var(--r-sm)"><div style="font-weight:700;color:var(--c-brand-600);font-size:.82em">${escapeHtml(mat?.nombre || '—')}</div><div style="font-size:.7em;color:var(--text-muted);margin-top:2px">${escapeHtml(gr?.nombre || '—')} · Aula ${escapeHtml(c.aula || gr?.aula || '—')}</div></td>`;
+        }).join('')}</tr>`).join('')}</tbody>
+      </table></div>`}
+    </div>`;
 }
 
 async function formClase(id, onSave) {

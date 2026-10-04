@@ -87,91 +87,97 @@ function norm(str) {
     .replace(/[^a-z0-9]/g, '');
 }
 
+const PWD_STORAGE = 'colegio_passwords_v1';
+function passwordMatches(usuario, provided, fallback) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PWD_STORAGE) || '{}');
+    const stored = saved?.[String(usuario)];
+    if (stored) return stored === btoa(provided);
+  } catch {}
+  return provided === fallback;
+}
+
 // ============================================================
 // SERVICIO
 // ============================================================
 export const AuthService = {
   async login(usuarioInput, passwordInput) {
-    await delay(400);
+    await delay(250);
 
     const u = norm(usuarioInput);
     const p = String(passwordInput || '').trim();
+    if (!u || !p) throw new Error('Completa usuario y contraseña');
 
-    console.log('═══════════════════════════════════════');
-    console.log('🔐 LOGIN:', { usuarioOriginal: usuarioInput, normalizado: u, password: p ? '(ingresada)' : '(vacía)' });
-
-    if (!u || !p) {
-      console.warn('❌ Campos vacíos');
-      throw new Error('Completa usuario y contraseña');
-    }
-
-    // ═══════════════════════════════════════════════════════
-    // 1) ADMIN
-    // ═══════════════════════════════════════════════════════
-    if (
-      (u === 'admin' || u === norm(ADMIN.email)) &&
-      p === ADMIN.password
-    ) {
-      console.log('✅ LOGIN: ADMIN');
+    // 1) Administrador
+    if (u === 'admin' || u === norm(ADMIN.email)) {
+      if (!passwordMatches(ADMIN.user.usuario, p, ADMIN.password)) {
+        throw new Error('Usuario o contraseña incorrectos');
+      }
       return { user: applyProfileOverride({ ...ADMIN.user, token: 'mock-' + Date.now() }) };
     }
 
-    // ═══════════════════════════════════════════════════════
-    // 2) ALUMNO
-    // ═══════════════════════════════════════════════════════
-    if (
-      (u === 'alumno' || u === norm(ALUMNO.email) || u === '20001') &&
-      p === ALUMNO.password
-    ) {
-      console.log('✅ LOGIN: ALUMNO');
-      return { user: applyProfileOverride({ ...ALUMNO.user, token: 'mock-' + Date.now() }) };
+    // 2) Alumno: cualquier matrícula/correo existente + atajo "alumno".
+    try {
+      const { AlumnosService } = await import('./data.service.js');
+      const alumnos = await AlumnosService.todos();
+      const alumno = u === 'alumno'
+        ? alumnos[0]
+        : alumnos.find(a => norm(a.matricula) === u || norm(a.email) === u);
+
+      if (alumno) {
+        const usuarioReal = String(alumno.matricula);
+        if (!passwordMatches(usuarioReal, p, ALUMNO.password)) {
+          throw new Error('Usuario o contraseña incorrectos');
+        }
+        const nombreCompleto = `${alumno.nombre} ${alumno.apellidos || ''}`.trim();
+        const iniciales = nombreCompleto.split(/\s+/).slice(0, 2).map(x => x[0]).join('').toUpperCase();
+        return { user: applyProfileOverride({
+          id: 200000 + Number(alumno.id),
+          usuario: usuarioReal,
+          matricula: usuarioReal,
+          nombre: nombreCompleto,
+          rol: 'alumno',
+          alumnoId: Number(alumno.id),
+          email: alumno.email,
+          iniciales,
+          token: 'mock-alumno-' + Date.now()
+        }) };
+      }
+    } catch (err) {
+      if (err?.message === 'Usuario o contraseña incorrectos') throw err;
+      console.error('No fue posible consultar alumnos para login:', err);
     }
 
-    // ═══════════════════════════════════════════════════════
-    // 3) PROFESOR
-    // ═══════════════════════════════════════════════════════
-    if (p === PASSWORD_PROFESOR) {
-      // Buscar profesor por: matrícula, nombre, apellido, email, o "profesor" (atajo)
-      
-      // Atajo universal
-      if (u === 'profesor') {
-        const prof = PROFESORES[0];
-        console.log('✅ LOGIN: PROFESOR (atajo universal) →', prof.nombre, prof.apellidos);
-        return { user: applyProfileOverride(this._construirUserProfesor(prof)) };
-      }
-
-      const prof = PROFESORES.find((pr) => {
-        const matricula = String(10000 + pr.id);                       // "10001"
-        const nombreUsuario = norm(pr.nombre + '.' + pr.apellidos.split(' ')[0]);  // "maria.gonzalez"
-        const emailNorm = norm(pr.email);                               // "mariagonzalez@colegioedu"
-        const primerNombre = norm(pr.nombre.split(' ')[0]);             // "maria"
-        const primerApellido = norm(pr.apellidos.split(' ')[0]);        // "gonzalez"
-        const nombreCompleto = norm(pr.nombre + ' ' + pr.apellidos);    // "mariagonzalezruiz"
-
-        return (
-          matricula === u ||
-          nombreUsuario === u ||
-          emailNorm === u ||
-          primerNombre === u ||
-          primerApellido === u ||
-          nombreCompleto === u
-        );
+    // 3) Profesor: matrícula/correo/nombre de cualquier profesor existente + atajo "profesor".
+    let prof = null;
+    try {
+      const { ProfesoresService } = await import('./data.service.js');
+      const profesores = await ProfesoresService.todos();
+      prof = u === 'profesor' ? profesores[0] : profesores.find((pr) => {
+        const matricula = norm(pr.matricula || String(10000 + Number(pr.id)));
+        const nombreUsuario = norm(`${pr.nombre}.${String(pr.apellidos || '').split(' ')[0]}`);
+        return matricula === u || norm(pr.email) === u || nombreUsuario === u ||
+          norm(`${pr.nombre} ${pr.apellidos || ''}`) === u;
       });
+    } catch (err) {
+      console.error('No fue posible consultar profesores para login:', err);
+    }
 
-      if (prof) {
-        console.log('✅ LOGIN: PROFESOR →', prof.nombre, prof.apellidos, '| Matrícula:', 10000 + prof.id);
-        return { user: applyProfileOverride(this._construirUserProfesor(prof)) };
+    // Compatibilidad con instalaciones demo antiguas.
+    if (!prof) {
+      prof = PROFESORES.find((pr) =>
+        String(10000 + pr.id) === u ||
+        norm(pr.email) === u ||
+        norm(`${pr.nombre} ${pr.apellidos}`) === u
+      );
+    }
+
+    if (prof) {
+      const usuarioReal = String(prof.matricula || (10000 + Number(prof.id)));
+      if (!passwordMatches(usuarioReal, p, PASSWORD_PROFESOR)) {
+        throw new Error('Usuario o contraseña incorrectos');
       }
-
-      // Debug: mostrar opciones
-      console.warn('❌ No se encontró profesor con:', u);
-      console.log('📋 Usuarios disponibles para profesores:');
-      console.log('   • Atajo universal: "profesor"');
-      console.log('   • Matrículas: "10001" al "10018"');
-      console.log('   • Ejemplos de usuario.nombre:', PROFESORES.slice(0, 3).map(p => norm(p.nombre + '.' + p.apellidos.split(' ')[0])));
-      console.log('   • Contraseña: "profesor123"');
-    } else {
-      console.warn('❌ Contraseña incorrecta para profesor');
+      return { user: applyProfileOverride(this._construirUserProfesor(prof)) };
     }
 
     throw new Error('Usuario o contraseña incorrectos');
@@ -181,8 +187,8 @@ export const AuthService = {
     const iniciales = (prof.nombre[0] + prof.apellidos[0]).toUpperCase();
     return {
       id: 100 + prof.id,
-      usuario: String(10000 + prof.id),
-      matricula: String(10000 + prof.id),
+      usuario: String(prof.matricula || (10000 + Number(prof.id))),
+      matricula: String(prof.matricula || (10000 + Number(prof.id))),
       nombre: `${prof.nombre} ${prof.apellidos}`,
       rol: 'profesor',
       profesorId: prof.id,

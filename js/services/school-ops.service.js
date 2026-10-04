@@ -1,4 +1,4 @@
-import { _db, AlumnosService, GruposService, InscripcionesService, DocumentosService, NotificacionesService } from './data.service.js';
+import { _db, AlumnosService, GruposService, InscripcionesService, DocumentosService, NotificacionesService, ConfigService } from './data.service.js';
 import { AuditService } from './audit.service.js';
 
 const KEY = 'colegio_ops_v2';
@@ -32,7 +32,15 @@ export const CiclosService = {
   async listar(){ return structuredClone(state.ciclos); },
   async activo(){ return structuredClone(state.ciclos.find(c=>c.estado==='activo')||state.ciclos[0]); },
   async guardar(ciclo){ const i=state.ciclos.findIndex(c=>c.id===ciclo.id); if(i>=0) state.ciclos[i]={...state.ciclos[i],...ciclo}; else state.ciclos.unshift(ciclo); save(state); AuditService.log('actualizó','ciclo escolar',ciclo.nombre); return ciclo; },
-  async setActivo(id){ state.ciclos=state.ciclos.map(c=>({...c,estado:c.id===id?'activo':(c.estado==='activo'?'cerrado':c.estado)})); save(state); AuditService.log('activó','ciclo escolar',id); }
+  async setActivo(id){
+    const existe = state.ciclos.some(c => c.id === id);
+    if (!existe) throw new Error('Ciclo escolar no encontrado');
+    state.ciclos = state.ciclos.map(c => ({...c, estado:c.id===id?'activo':(c.estado==='activo'?'cerrado':c.estado)}));
+    save(state);
+    await ConfigService.guardar({ cicloEscolar:id });
+    try { window.dispatchEvent(new CustomEvent('school:cycles-changed', { detail:{ ciclo:id } })); } catch {}
+    AuditService.log('activó','ciclo escolar',id);
+  }
 };
 
 export const RolesService = {
@@ -48,7 +56,7 @@ export const TareasService = {
     const riesgo=(db.alumnos||[]).filter(a=>{ const notas=(db.calificaciones||[]).filter(c=>c.alumnoId===a.id).map(c=>c.nota); return notas.length && notas.reduce((x,y)=>x+y,0)/notas.length < (db.config?.escalaMinima||6); });
     if(riesgo.length) tareas.push({id:'riesgo',tipo:'academico',prioridad:'alta',titulo:`${riesgo.length} alumnos requieren seguimiento`,detalle:'Promedio por debajo de la escala mínima.',ruta:'calificaciones'});
     const pendientes=(db.tramites||[]).filter(t=>!['Disponible','Entregado','Cancelado'].includes(t.estado));
-    if(pendientes.length) tareas.push({id:'tramites',tipo:'tramite',prioridad:'media',titulo:`${pendientes.length} trámites pendientes`,detalle:'Solicitudes esperando revisión o entrega.',ruta:'tramites'});
+    if(pendientes.length) tareas.push({id:'tramites',tipo:'tramite',prioridad:'media',titulo:`${pendientes.length} trámites pendientes`,detalle:'Solicitudes esperando revisión o entrega.',ruta:'inscripciones'});
     const docsAlumnos=new Set((db.documentos||[]).map(d=>d.alumnoId)); const sinDocs=(db.alumnos||[]).filter(a=>a.estado==='activo'&&!docsAlumnos.has(a.id));
     if(sinDocs.length) tareas.push({id:'docs',tipo:'documento',prioridad:'media',titulo:`${sinDocs.length} expedientes sin documentos`,detalle:'Revisa documentación de alumnos activos.',ruta:'alumnos'});
     const sinNotas=(db.alumnos||[]).filter(a=>!(db.calificaciones||[]).some(c=>c.alumnoId===a.id));
@@ -85,5 +93,17 @@ export const DocumentosOficialesService = {
 export const ComunicacionService = {
   async programacion(){ return {...state.comunicacion}; },
   async guardar(data){ state.comunicacion={...state.comunicacion,...data}; save(state); },
-  async notificarUsuarios(titulo,desc,roles=['admin','profesor','alumno']){ const db=_db(); for(const u of (db.usuarios||[]).filter(u=>roles.includes(u.rol))) await NotificacionesService.crear({usuarioId:u.id,titulo,desc,fecha:new Date().toISOString(),leida:false,tipo:'aviso'}); }
+  async notificarUsuarios(titulo,desc,roles=['admin','profesor','alumno']){
+    const cleanRoles = [...new Set((roles || []).filter(Boolean))];
+    const todos = ['admin','profesor','alumno'].every(r => cleanRoles.includes(r));
+    return NotificacionesService.crear({
+      scope: todos ? 'todos' : undefined,
+      roles: todos ? undefined : cleanRoles,
+      titulo,
+      desc,
+      fecha:new Date().toISOString(),
+      leida:false,
+      tipo:'aviso'
+    });
+  }
 };

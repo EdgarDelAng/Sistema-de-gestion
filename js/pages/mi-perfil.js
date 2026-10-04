@@ -9,14 +9,13 @@ const PWD_STORAGE = 'colegio_passwords_v1';
 const pwdStore = {
   get() { try { return JSON.parse(localStorage.getItem(PWD_STORAGE)) || {}; } catch { return {}; } },
   set(usuario, pwd) { const s = this.get(); s[usuario] = btoa(pwd); localStorage.setItem(PWD_STORAGE, JSON.stringify(s)); },
-  check(usuario, pwd) {
+  check(usuario, pwd, rol) {
     const s = this.get();
-    // Si no hay contraseña guardada, usar la del mock
-    if (!s[usuario]) {
-      const defaults = { admin: 'admin123', profesor: 'profesor123', alumno: 'alumno123' };
-      return defaults[usuario] === pwd;
-    }
-    return s[usuario] === btoa(pwd);
+    if (s[usuario]) return s[usuario] === btoa(pwd);
+    // En las cuentas demo el usuario real puede ser una matrícula (20001/10001).
+    // El valor por defecto depende del rol, no del texto del usuario.
+    const defaults = { admin: 'admin123', profesor: 'profesor123', alumno: 'alumno123' };
+    return defaults[rol] === pwd;
   }
 };
 
@@ -26,7 +25,7 @@ export async function renderMiPerfil(container) {
 
   let academia = null;
   if (u.rol === 'alumno') {
-    try { academia = await KardexService.porAlumno(u.alumnoId || 1); } catch {}
+    try { if (u.alumnoId) academia = await KardexService.porAlumno(Number(u.alumnoId)); } catch {}
   }
 
   container.innerHTML = `
@@ -261,7 +260,7 @@ export async function renderMiPerfil(container) {
       const conf = overlay.querySelector('#pwd_conf').value;
 
       if (!actual || !nueva || !conf) { UI.toast('Completa todos los campos', 'warning'); return; }
-      if (!pwdStore.check(Auth.user.usuario, actual)) { UI.toast('La contraseña actual es incorrecta', 'error'); return; }
+      if (!pwdStore.check(Auth.user.usuario, actual, Auth.user.rol)) { UI.toast('La contraseña actual es incorrecta', 'error'); return; }
       if (nueva.length < 8) { UI.toast('La nueva contraseña debe tener al menos 8 caracteres', 'warning'); return; }
       if (!/[A-Z]/.test(nueva)) { UI.toast('Debe incluir al menos una mayúscula', 'warning'); return; }
       if (!/\d/.test(nueva)) { UI.toast('Debe incluir al menos un número', 'warning'); return; }
@@ -292,69 +291,77 @@ export async function renderMiPerfil(container) {
 
   // ============ 2FA ============
   container.querySelector('#btn2FA').addEventListener('click', () => {
-    UI.modal({
+    const twoFAKey = `colegio_2fa_${Auth.user.rol}_${Auth.user.usuario}`;
+    const activo = localStorage.getItem(twoFAKey) === '1';
+    const { overlay, close } = UI.modal({
       title: 'Autenticación en dos pasos',
       body: `
         <p style="color:var(--text-secondary);font-size:var(--fs-sm);line-height:1.7;margin-bottom:var(--sp-4)">
-          La autenticación en dos pasos añade una capa adicional de seguridad. Cuando la configures, además de tu contraseña deberás ingresar un código temporal generado por una aplicación como Google Authenticator o Authy.
+          ${activo ? 'La autenticación en dos pasos está activa para esta cuenta demo.' : 'Añade una capa adicional de seguridad. En esta versión frontend el código se valida localmente como demostración.'}
         </p>
-        <div style="background:var(--bg-muted);border-radius:var(--r-md);padding:var(--sp-4);text-align:center">
-          <div style="width:120px;height:120px;background:#fff;border:1px solid var(--border);border-radius:var(--r-md);margin:0 auto;display:grid;place-items:center">
-            <i class="fas fa-qrcode" style="font-size:3rem;color:var(--text-muted)" aria-hidden="true"></i>
+        ${activo ? `
+          <div class="status-banner status-success"><i class="fas fa-circle-check"></i><span>Protección de dos pasos activada</span></div>` : `
+          <div style="background:var(--bg-muted);border-radius:var(--r-md);padding:var(--sp-4);text-align:center">
+            <div style="width:120px;height:120px;background:#fff;border:1px solid var(--border);border-radius:var(--r-md);margin:0 auto;display:grid;place-items:center">
+              <i class="fas fa-qrcode" style="font-size:3rem;color:var(--text-muted)" aria-hidden="true"></i>
+            </div>
+            <p style="font-size:var(--fs-xs);color:var(--text-muted);margin-top:var(--sp-3)">Código QR de demostración</p>
           </div>
-          <p style="font-size:var(--fs-xs);color:var(--text-muted);margin-top:var(--sp-3)">Código QR de ejemplo</p>
-        </div>
-        <div class="field" style="margin-top:var(--sp-4)">
-          <label for="codigo2fa">Código de verificación</label>
-          <input class="input" id="codigo2fa" maxlength="6" inputmode="numeric" placeholder="000000" style="text-align:center;font-size:1.2rem;letter-spacing:.5em">
-        </div>`,
-      footer: `
-        <button class="btn btn-secondary" data-action="close">Cancelar</button>
-        <button class="btn btn-primary" id="save2fa"><i class="fas fa-check"></i> Verificar y activar</button>`
-    }).then(() => {});
+          <div class="field" style="margin-top:var(--sp-4)">
+            <label for="codigo2fa">Código de verificación</label>
+            <input class="input" id="codigo2fa" maxlength="6" inputmode="numeric" placeholder="000000" style="text-align:center;font-size:1.2rem;letter-spacing:.45em">
+            <div class="field-hint">Para la demo acepta cualquier código de 6 dígitos.</div>
+          </div>`}
+      `,
+      footer: activo
+        ? `<button class="btn btn-secondary" data-action="close">Cerrar</button><button class="btn btn-danger" id="disable2fa"><i class="fas fa-shield-halved"></i> Desactivar</button>`
+        : `<button class="btn btn-secondary" data-action="close">Cancelar</button><button class="btn btn-primary" id="save2fa"><i class="fas fa-check"></i> Verificar y activar</button>`
+    });
+
+    overlay.querySelector('#save2fa')?.addEventListener('click', () => {
+      const code = overlay.querySelector('#codigo2fa')?.value.trim() || '';
+      if (!/^\d{6}$/.test(code)) { UI.toast('Ingresa un código de 6 dígitos', 'warning'); return; }
+      localStorage.setItem(twoFAKey, '1');
+      close();
+      UI.toast('Autenticación en dos pasos activada', 'success');
+      AuditService.log('activó', 'seguridad', `${Auth.user.nombre} activó 2FA en su cuenta demo`);
+    });
+    overlay.querySelector('#disable2fa')?.addEventListener('click', () => {
+      localStorage.removeItem(twoFAKey);
+      close();
+      UI.toast('Autenticación en dos pasos desactivada', 'info');
+      AuditService.log('desactivó', 'seguridad', `${Auth.user.nombre} desactivó 2FA en su cuenta demo`);
+    });
   });
 
   // ============ Sesiones ============
   container.querySelector('#btnSessions').addEventListener('click', () => {
-    UI.modal({
+    const { overlay, close } = UI.modal({
       title: 'Sesiones activas',
       size: 'modal-lg',
       body: `
         <div class="list-item" style="border-left-color:var(--c-success);background:var(--c-success-bg)">
-          <div style="width:40px;height:40px;border-radius:var(--r-md);background:var(--c-success);color:#fff;display:grid;place-items:center;flex-shrink:0">
-            <i class="fas fa-desktop" aria-hidden="true"></i>
-          </div>
+          <div style="width:40px;height:40px;border-radius:var(--r-md);background:var(--c-success);color:#fff;display:grid;place-items:center;flex-shrink:0"><i class="fas fa-desktop" aria-hidden="true"></i></div>
           <div style="flex:1">
-            <div style="display:flex;align-items:center;gap:var(--sp-2)">
-              <div class="list-item-title" style="margin-bottom:0">Este dispositivo · Sesión actual</div>
-              <span class="badge badge-success">Actual</span>
-            </div>
-            <div class="list-item-desc">${navigator.userAgent.includes('Mobile') ? 'Dispositivo móvil' : 'Escritorio'} · IP local · Última actividad ahora</div>
+            <div style="display:flex;align-items:center;gap:var(--sp-2)"><div class="list-item-title" style="margin-bottom:0">Este dispositivo · Sesión actual</div><span class="badge badge-success">Actual</span></div>
+            <div class="list-item-desc">${navigator.userAgent.includes('Mobile') ? 'Dispositivo móvil' : 'Escritorio'} · Sesión local · Última actividad ahora</div>
           </div>
         </div>
-        <div class="list-item">
-          <div style="width:40px;height:40px;border-radius:var(--r-md);background:var(--bg-hover);color:var(--text-secondary);display:grid;place-items:center;flex-shrink:0">
-            <i class="fas fa-mobile-screen" aria-hidden="true"></i>
-          </div>
-          <div style="flex:1">
-            <div class="list-item-title">iPhone · Safari</div>
-            <div class="list-item-desc">Última actividad hace 2 días · IP 192.168.1.45</div>
-          </div>
-          <button class="btn btn-sm btn-danger" onclick="this.closest('.list-item').remove()">
-            <i class="fas fa-sign-out-alt"></i> Cerrar
-          </button>
+        <div class="list-item" id="demoSecondarySession">
+          <div style="width:40px;height:40px;border-radius:var(--r-md);background:var(--bg-hover);color:var(--text-secondary);display:grid;place-items:center;flex-shrink:0"><i class="fas fa-mobile-screen" aria-hidden="true"></i></div>
+          <div style="flex:1"><div class="list-item-title">Dispositivo de demostración</div><div class="list-item-desc">Sesión secundaria simulada para esta versión frontend</div></div>
+          <button class="btn btn-sm btn-danger" id="closeSecondarySession"><i class="fas fa-sign-out-alt"></i> Cerrar</button>
         </div>`,
-      footer: `
-        <button class="btn btn-secondary" data-action="close">Cerrar</button>
-        <button class="btn btn-danger" id="closeAllSessions"><i class="fas fa-power-off"></i> Cerrar todas las demás</button>`
-    }).then((result) => {
-      // Se engancha al click del botón especial (por si el modal se cierra sin usarlo)
-      setTimeout(() => {
-        document.getElementById('closeAllSessions')?.addEventListener('click', () => {
-          UI.toast('Sesiones cerradas (demo)', 'success');
-        });
-      }, 150);
+      footer: `<button class="btn btn-secondary" data-action="close">Cerrar</button><button class="btn btn-danger" id="closeAllSessions"><i class="fas fa-power-off"></i> Cerrar todas las demás</button>`
     });
+
+    const closeSecondary = () => {
+      overlay.querySelector('#demoSecondarySession')?.remove();
+      overlay.querySelector('#closeAllSessions')?.setAttribute('disabled', '');
+      UI.toast('Sesión secundaria cerrada (demo)', 'success');
+    };
+    overlay.querySelector('#closeSecondarySession')?.addEventListener('click', closeSecondary);
+    overlay.querySelector('#closeAllSessions')?.addEventListener('click', closeSecondary);
   });
 
   // ============ Preferencias ============

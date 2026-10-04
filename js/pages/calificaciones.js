@@ -87,24 +87,38 @@ export async function renderCalificaciones(container) {
   const statsWrap = container.querySelector('#stats');
   const resultadoWrap = container.querySelector('#resultado');
 
-  // Para profesor, limitar grupos solo a los suyos
+  // Los profesores solo pueden consultar/capturar combinaciones grupo-materia que realmente tienen asignadas.
   let grupos = await GruposService.todos();
+  const materias = await MateriasService.todos();
+  const dbActual = (await import('../services/data.service.js'))._db();
+  const asignacionesProfesor = Auth.hasRole('profesor')
+    ? (dbActual.materiaGrupo || []).filter((mg) => mg.profesorId === Number(Auth.user.profesorId))
+    : [];
+
   if (Auth.hasRole('profesor')) {
-    const { HorariosService } = await import('../services/data.service.js');
-    const horarios = await HorariosService.porProfesor(Auth.user.profesorId);
-    const misGruposIds = [...new Set(horarios.map((h) => h.grupoId))];
-    grupos = grupos.filter((g) => misGruposIds.includes(g.id));
+    const misGruposIds = new Set(asignacionesProfesor.map((mg) => mg.grupoId));
+    grupos = grupos.filter((g) => misGruposIds.has(g.id));
   }
 
-  const materias = await MateriasService.todos();
   state._grupos = grupos;
   state._materias = materias;
 
   fGrupo.innerHTML = '<option value="">Selecciona un grupo…</option>' +
     grupos.map((g) => `<option value="${g.id}">${escapeHtml(g.nombre)} · Aula ${escapeHtml(g.aula || '—')}</option>`).join('');
 
-  fMateria.innerHTML = '<option value="">Selecciona una materia…</option>' +
-    materias.map((m) => `<option value="${m.id}">${escapeHtml(m.clave)} · ${escapeHtml(m.nombre)}</option>`).join('');
+  const renderMateriasFiltro = () => {
+    const grupoId = Number(fGrupo.value);
+    let disponibles = materias;
+    if (Auth.hasRole('profesor')) {
+      const ids = new Set(asignacionesProfesor.filter((mg) => mg.grupoId === grupoId).map((mg) => mg.materiaId));
+      disponibles = materias.filter((m) => ids.has(m.id));
+    }
+    fMateria.innerHTML = '<option value="">Selecciona una materia…</option>' +
+      disponibles.map((m) => `<option value="${m.id}">${escapeHtml(m.clave)} · ${escapeHtml(m.nombre)}</option>`).join('');
+    fMateria.disabled = Auth.hasRole('profesor') && !grupoId;
+  };
+  renderMateriasFiltro();
+  fGrupo.addEventListener('change', () => { renderMateriasFiltro(); renderEmpty(); });
 
   renderEmpty();
 
@@ -127,6 +141,11 @@ export async function renderCalificaciones(container) {
 
     if (!grupoId || !materiaId) {
       UI.toast('Selecciona grupo y materia para consultar', 'warning');
+      return;
+    }
+    if (Auth.hasRole('profesor') && !asignacionesProfesor.some((mg) => mg.grupoId === grupoId && mg.materiaId === materiaId)) {
+      UI.toast('No tienes asignada esa materia en este grupo', 'error');
+      renderEmpty();
       return;
     }
 

@@ -5,14 +5,15 @@ import { statusBadge } from '../components/status-badge.js';
 import { emptyState } from '../components/loading.js';
 
 const TIPOS = [
-  { tipo: 'Constancia de estudios',       icon: 'fa-file-certificate', desc: 'Documento que acredita que el alumno está inscrito y cursando estudios.' },
+  { tipo: 'Constancia de estudios',       icon: 'fa-file-signature', desc: 'Documento que acredita que el alumno está inscrito y cursando estudios.' },
   { tipo: 'Kárdex',                       icon: 'fa-file-lines',       desc: 'Historial académico completo con todas las materias y calificaciones.' },
   { tipo: 'Constancia de calificaciones', icon: 'fa-file-invoice',     desc: 'Documento con las calificaciones del periodo actual.' },
   { tipo: 'Constancia de buena conducta', icon: 'fa-user-shield',      desc: 'Documento que acredita la conducta del alumno.' }
 ];
 
 export async function renderTramites(container) {
-  const alumnoId = Auth.user.alumnoId || 1;
+  const alumnoId = Number(Auth.user.alumnoId);
+  if (!alumnoId) { container.innerHTML = `<div class="card" style="padding:var(--sp-8);text-align:center"><h2>Cuenta sin expediente vinculado</h2><p class="text-muted">Vuelve a iniciar sesión con tu matrícula para gestionar trámites.</p></div>`; return; }
 
   container.innerHTML = `
     <div class="page-head">

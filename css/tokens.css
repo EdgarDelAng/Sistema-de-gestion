@@ -52,3 +52,19 @@
   --sh-lg:0 18px 44px rgba(0,0,0,.34); --sh-xl:0 28px 70px rgba(0,0,0,.42);
 }
 [data-theme="dark"] body,[data-theme="dark"] input,[data-theme="dark"] select,[data-theme="dark"] textarea{color-scheme:dark}
+
+/* Acento personal del usuario: verde institucional (default) o azul marino. */
+[data-accent="navy"] {
+  --c-brand-700:#1e3a5f; --c-brand-600:#1e4f7a; --c-brand-500:#2563a6; --c-brand-400:#3b82c4;
+  --c-brand-300:#7db7df; --c-brand-200:#bfdbef; --c-brand-100:#e6f1f8;
+  --c-accent-700:#1e3a5f; --c-accent-600:#1e4f7a; --c-accent-500:#2563a6; --c-accent-400:#3b82c4;
+  --c-accent-300:#7db7df; --c-accent-200:#bfdbef; --c-accent-100:#e6f1f8;
+  --bg-sidebar-active:#edf5fb; --text-sidebar-active:#1e4f7a;
+  --primary-soft:#edf5fb; --primary-light:#d8eaf6; --sh-focus:0 0 0 3px rgba(37,99,166,.18);
+}
+[data-theme="dark"][data-accent="navy"] {
+  --c-brand-700:#93c5e8; --c-brand-600:#60a5d8; --c-brand-500:#4b9bd1; --c-brand-400:#71b6e2;
+  --c-brand-300:#93c5e8; --c-brand-200:#234b68; --c-brand-100:#172d3d;
+  --c-accent-700:#93c5e8; --c-accent-600:#60a5d8; --c-accent-500:#4b9bd1; --c-accent-400:#71b6e2;
+  --bg-sidebar-active:#172d3d; --text-sidebar-active:#93c5e8; --primary-soft:#172d3d; --primary-light:#234b68;
+}

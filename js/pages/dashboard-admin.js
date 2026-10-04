@@ -20,7 +20,7 @@ export async function renderDashboardAdmin(container) {
     StatsService.alumnosEnRiesgo(6),
     CalendarioService.todos(),
     AvisosService.listar(),
-    NotificacionesService.porUsuario(userId),
+    NotificacionesService.paraUsuario(Auth.user),
     AsistenciaService.historial(),
     TareasService.listar()
   ]);

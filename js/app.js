@@ -5,9 +5,10 @@ import { initGlobalSearch } from './components/global-search.js';
 
 import { Auth, ROLES } from './core/auth.js';
 import { Router } from './core/router.js';
-import { UI } from './core/ui.js';
+import { UI, escapeHtml } from './core/ui.js';
 import { AuthService } from './services/auth.service.js';
 import { NotificacionesService, ConfigService } from './services/data.service.js';
+import { RolesService } from './services/school-ops.service.js';
 import { renderSidebar } from './components/sidebar.js';
 import { PeriodSelector } from './components/period-selector.js';
 import { ModeToggle } from './components/mode-toggle.js';
@@ -33,6 +34,7 @@ if (!haySesion) {
   Auth.logout();
   location.replace('index.html');
 } else {
+  ModeToggle.setUser(Auth.user);
   try { bootstrap(); }
   catch (err) {
     console.error('Bootstrap error:', err);
@@ -105,16 +107,17 @@ function bootstrap() {
           console.error(`Error cargando "${section}":`, err);
           container.innerHTML = `
             <div class="error-page">
-              <div class="err-icon" style="background:var(--c-warning-bg);color:var(--c-warning)">
-                <i class="fas fa-hammer"></i>
+              <div class="err-icon" style="background:var(--c-danger-bg);color:var(--c-danger)">
+                <i class="fas fa-triangle-exclamation"></i>
               </div>
-              <div class="err-code" style="font-size:var(--fs-3xl)">Módulo en construcción</div>
-              <h2>${section}</h2>
-              <p>Este módulo aún no está disponible. Pronto podrás acceder a esta sección.</p>
-              <pre style="background:var(--bg-muted);padding:var(--sp-3);border-radius:var(--r-md);font-size:.75em;overflow:auto;color:var(--c-danger);max-width:100%">${err.message}</pre>
-              <button class="btn btn-primary" onclick="location.hash='#/inicio'" style="margin-top:var(--sp-4)">
-                <i class="fas fa-house"></i> Volver al inicio
-              </button>
+              <div class="err-code" style="font-size:var(--fs-3xl)">No se pudo cargar el módulo</div>
+              <h2>${escapeHtml(section)}</h2>
+              <p>Ocurrió un error inesperado. Puedes reintentar o volver al inicio sin perder el resto de la sesión.</p>
+              <pre style="background:var(--bg-muted);padding:var(--sp-3);border-radius:var(--r-md);font-size:.75em;overflow:auto;color:var(--c-danger);max-width:100%">${escapeHtml(err?.message || 'Error desconocido')}</pre>
+              <div style="display:flex;gap:var(--sp-2);justify-content:center;flex-wrap:wrap;margin-top:var(--sp-4)">
+                <button class="btn btn-secondary" onclick="location.reload()"><i class="fas fa-rotate"></i> Reintentar</button>
+                <button class="btn btn-primary" onclick="location.hash='#/inicio'"><i class="fas fa-house"></i> Volver al inicio</button>
+              </div>
             </div>`;
         }
       });
@@ -164,10 +167,22 @@ function bootstrap() {
       Router.navigate('mi-perfil');
     });
 
-    menu.querySelector('#miConfig')?.addEventListener('click', () => {
-      if (Auth.hasRole(ROLES.ADMIN)) Router.navigate('configuracion');
-      else UI.toast('No tienes permiso para esta sección', 'warning');
-    });
+    const configItem = menu.querySelector('#miConfig');
+    if (configItem) {
+      if (!Auth.hasRole(ROLES.ADMIN)) {
+        configItem.innerHTML = '<i class="fas fa-circle-half-stroke" aria-hidden="true"></i> Cambiar apariencia';
+      }
+      configItem.addEventListener('click', () => {
+        if (Auth.hasRole(ROLES.ADMIN)) {
+          Router.navigate('configuracion');
+          return;
+        }
+        // Profesor y alumno personalizan modo y color sin entrar a Configuración institucional.
+        menu.classList.remove('open');
+        chip.classList.remove('open');
+        ModeToggle.openAppearanceDialog();
+      });
+    }
 
     menu.querySelector('#logoutBtn')?.addEventListener('click', async () => {
       const ok = await UI.confirm({
@@ -195,7 +210,16 @@ function bootstrap() {
       const dot=document.getElementById('notifDot'); if(dot){dot.textContent=unread;dot.style.display=unread?'grid':'none'}
       panel.innerHTML=`<div class="notif-popover-head"><div><strong>Notificaciones</strong><small>${unread} sin leer</small></div><button class="btn btn-sm btn-secondary" id="seeAllNotif">Ver todas</button></div><div class="notif-popover-list">${items.slice(0,6).map(n=>`<button class="notif-popover-item ${n.leida?'':'unread'}" data-nid="${n.id}"><span class="notif-dot-mini"></span><span><strong>${n.titulo}</strong><small>${n.desc||''}</small></span></button>`).join('')||'<div class="command-empty">Sin notificaciones.</div>'}</div>`;
       panel.querySelector('#seeAllNotif')?.addEventListener('click',()=>{panel.hidden=true;Router.navigate('notificaciones')});
-      panel.querySelectorAll('[data-nid]').forEach(el=>el.onclick=async()=>{await NotificacionesService.marcarLeidaPara(Number(el.dataset.nid), Auth.user);await refresh()});
+      panel.querySelectorAll('[data-nid]').forEach(el=>el.onclick=async()=>{
+        if(el.dataset.busy==='1') return;
+        el.dataset.busy='1';
+        await NotificacionesService.marcarLeidaPara(Number(el.dataset.nid), Auth.user);
+        el.classList.remove('unread');
+        el.dataset.busy='0';
+        const remaining = await NotificacionesService.contarNoLeidasPara(Auth.user);
+        const dot=document.getElementById('notifDot'); if(dot){dot.textContent=remaining;dot.style.display=remaining?'grid':'none'}
+        const small=panel.querySelector('.notif-popover-head small'); if(small) small.textContent=`${remaining} sin leer`;
+      });
     };
     btn.addEventListener('click', async (e) => { e.stopPropagation(); panel.hidden=!panel.hidden; if(!panel.hidden) await refresh(); });
     document.addEventListener('click',e=>{if(!panel.contains(e.target)&&e.target!==btn&&!btn.contains(e.target))panel.hidden=true});
@@ -203,6 +227,12 @@ function bootstrap() {
   }
 
   // ============ TEMA ============
+  document.addEventListener('appearance:changed', (e) => {
+    const icon = document.querySelector('#themeBtn i');
+    if (icon) icon.className = e.detail.theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+    UI.toast('Apariencia guardada', 'success', 1400);
+  });
+
   function bindThemeToggle() {
     const btn = document.getElementById('themeBtn');
     if (!btn) return;
@@ -288,17 +318,23 @@ function bootstrap() {
   }
 
   // ============ SESSION WATCHDOG ============
-  function bindSessionWatchdog() {
+  async function bindSessionWatchdog() {
     let timer;
+    let minutos = 60;
+    try {
+      const seguridad = await RolesService.seguridad();
+      const valor = Number(seguridad?.expiracionMin);
+      if (Number.isFinite(valor) && valor >= 5 && valor <= 1440) minutos = valor;
+    } catch {}
     const reset = () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
         UI.toast('Sesión expirada por inactividad', 'warning', 4000);
         Auth.logout();
         setTimeout(() => location.replace('index.html'), 1200);
-      }, 30 * 60 * 1000);
+      }, minutos * 60 * 1000);
     };
-    ['click', 'keydown', 'mousemove', 'scroll'].forEach((ev) =>
+    ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'].forEach((ev) =>
       document.addEventListener(ev, reset, { passive: true })
     );
     reset();
@@ -321,9 +357,7 @@ function bootstrap() {
   window.addEventListener('school:data-changed', (e) => {
     if (e.detail?.entity === 'configuracion') { renderBranding(); renderSidebar(); }
   });
+  window.addEventListener('school:cycles-changed', () => { PeriodSelector.render(); });
   Router.start();
 
-  console.log('%cSistema Escolar' , 'font-size:14px;font-weight:700;color:#2563eb');
-  console.log('Sesión:', Auth.user);
-  console.log('Tema:', ModeToggle.current);
 }

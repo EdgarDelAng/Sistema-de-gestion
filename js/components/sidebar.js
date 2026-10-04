@@ -282,6 +282,12 @@ const MENU = {
                     section: 'notificaciones',
                     label: 'Notificaciones',
                     icon: 'fa-bell'
+                },
+
+                {
+                    section: 'calendario',
+                    label: 'Calendario',
+                    icon: 'fa-calendar-days'
                 }
 
             ]
@@ -402,6 +408,12 @@ const MENU = {
                     section: 'notificaciones',
                     label: 'Notificaciones',
                     icon: 'fa-bell'
+                },
+
+                {
+                    section: 'calendario',
+                    label: 'Calendario',
+                    icon: 'fa-calendar-days'
                 }
 
             ]

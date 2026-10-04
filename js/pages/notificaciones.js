@@ -31,7 +31,15 @@ export async function renderNotificaciones(container) {
   const cargar = async () => {
     const wrap = container.querySelector('#notifList');
     wrap.innerHTML = `<div class="skeleton-block" style="height:200px"></div>`;
-    const items = await NotificacionesService.paraUsuario(usuario);
+    let items = [];
+    try {
+      items = await NotificacionesService.paraUsuario(usuario);
+    } catch (err) {
+      console.error('Error cargando notificaciones:', err);
+      wrap.innerHTML = `<div class="empty"><i class="fas fa-triangle-exclamation"></i><h4>No se pudieron cargar las notificaciones</h4><p>Intenta nuevamente.</p><button class="btn btn-secondary btn-sm" id="retryNotif"><i class="fas fa-rotate"></i> Reintentar</button></div>`;
+      wrap.querySelector('#retryNotif')?.addEventListener('click', cargar);
+      return;
+    }
 
     if (!items.length) {
       wrap.innerHTML = `<div class="empty"><i class="fas fa-bell-slash"></i><h4>Sin notificaciones</h4><p>Aquí aparecerá tu actividad reciente.</p></div>`;
@@ -61,9 +69,21 @@ export async function renderNotificaciones(container) {
 
     wrap.querySelectorAll('[data-id]').forEach((el) => {
       el.addEventListener('click', async () => {
-        await NotificacionesService.marcarLeidaPara(Number(el.dataset.id), usuario);
-        cargar();
-        actualizarBadge();
+        if (el.classList.contains('notif-busy')) return;
+        el.classList.add('notif-busy');
+        try {
+          await NotificacionesService.marcarLeidaPara(Number(el.dataset.id), usuario);
+          // Actualización en sitio: evita que la lista desaparezca/reaparezca y produzca el “rebote”.
+          el.classList.remove('unread');
+          el.style.background = '';
+          el.style.borderLeftColor = '';
+          el.querySelector('[style*="width:8px"]')?.remove();
+          await actualizarBadge();
+        } catch (err) {
+          UI.toast('No se pudo actualizar la notificación', 'error');
+        } finally {
+          el.classList.remove('notif-busy');
+        }
       });
     });
   };

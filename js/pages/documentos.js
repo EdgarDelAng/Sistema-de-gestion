@@ -11,7 +11,8 @@ const ICONO_TIPO = {
 };
 
 export async function renderDocumentos(container) {
-  const alumnoId = Auth.user.alumnoId || 1;
+  const alumnoId = Number(Auth.user.alumnoId);
+  if (!alumnoId) { container.innerHTML = `<div class="card" style="padding:var(--sp-8);text-align:center"><h2>Cuenta sin expediente vinculado</h2><p class="text-muted">Vuelve a iniciar sesión con tu matrícula para consultar documentos.</p></div>`; return; }
 
   container.innerHTML = `
     <div class="page-head">

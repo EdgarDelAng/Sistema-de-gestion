@@ -8,7 +8,9 @@ export async function renderKardex(container) {
   const esAlumno = Auth.hasRole('alumno');
 
   if (esAlumno) {
-    return renderKardexDirecto(container, Auth.user.alumnoId || 1);
+    const alumnoId = Number(Auth.user.alumnoId);
+    if (!alumnoId) { container.innerHTML = `<div class="card" style="padding:var(--sp-8);text-align:center"><h2>Cuenta sin expediente vinculado</h2><p class="text-muted">Vuelve a iniciar sesión con tu matrícula para consultar tu kárdex.</p></div>`; return; }
+    return renderKardexDirecto(container, alumnoId);
   }
 
   let grupoSel = null;

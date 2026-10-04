@@ -21,7 +21,7 @@ const PERMISSIONS = {
     'inicio',
     'mis-grupos',
     'calificaciones', 'asistencia', 'horarios',
-    'avisos', 'notificaciones',
+    'avisos', 'notificaciones', 'calendario',
     'mi-perfil',
     'ayuda'
   ],
@@ -29,7 +29,7 @@ const PERMISSIONS = {
     'inicio',
     'mis-calificaciones', 'mi-horario', 'mi-asistencia', 'mi-kardex',
     'boleta', 'tramites', 'documentos',
-    'avisos', 'notificaciones',
+    'avisos', 'notificaciones', 'calendario',
     'mi-perfil',
     'ayuda'
   ]

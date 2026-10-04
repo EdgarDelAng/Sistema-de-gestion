@@ -372,7 +372,8 @@ function generarSeed() {
     email: 'info@colegiopapu.edu',
     cicloEscolar: '2026-2027',
     escalaMinima: 6,
-    periodos: 3
+    periodos: 3,
+    loginTema: 'verde-claro'
   };
 
    return {
@@ -830,8 +831,16 @@ export const AvisosService = {
   async listar(f = {}) {
     await delay(120);
     let items = [...(DB.avisos || [])];
-    if (f.rol) items = items.filter((a) => a.dirigidoA === 'todos' || a.dirigidoA === f.rol);
-    items.sort((a, b) => b.fecha.localeCompare(a.fecha));
+    if (f.rol) {
+      const aliases = {
+        admin: ['admin', 'administrador'],
+        profesor: ['profesor', 'profesores', 'docente', 'docentes'],
+        alumno: ['alumno', 'alumnos', 'estudiante', 'estudiantes']
+      };
+      const permitidos = new Set(['todos', ...(aliases[f.rol] || [f.rol])]);
+      items = items.filter((a) => permitidos.has(String(a.dirigidoA || '').toLowerCase()));
+    }
+    items.sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')));
     return items;
   }
 };
@@ -841,23 +850,53 @@ export const AvisosService = {
 // ============================================================
 export const NotificacionesService = {
   ...makeCrud('notificaciones', 'notificacion'),
-  async porUsuario(usuarioId) {
-    await delay(120);
-    return (DB.notificaciones || []).filter((n) => n.usuarioId === Number(usuarioId)).sort((a, b) => b.fecha.localeCompare(a.fecha));
+
+  _readState(usuario) {
+    try { return JSON.parse(localStorage.getItem(`colegio_notif_state_${usuario?.rol}_${usuario?.id}`) || '{}'); }
+    catch { return {}; }
   },
-  async contarNoLeidas(usuarioId) {
-    return (DB.notificaciones || []).filter((n) => n.usuarioId === Number(usuarioId) && !n.leida).length;
+  _writeState(usuario, state) {
+    try { localStorage.setItem(`colegio_notif_state_${usuario?.rol}_${usuario?.id}`, JSON.stringify(state)); } catch {}
   },
-  async marcarLeida(id) {
-    const n = byId(DB.notificaciones, id);
-    if (n) { n.leida = true; save(); }
-    return { ok: true };
+  _aplica(n, usuario) {
+    if (!usuario) return false;
+    if (n.scope === 'todos') return true;
+    if (Array.isArray(n.roles) && n.roles.includes(usuario.rol)) return true;
+    if (n.usuarioId === Number(usuario.id)) return true;
+    // Compatibilidad con datos demo anteriores: 1=admin, 2=profesor, 3=alumno.
+    if (usuario.rol === 'admin' && n.usuarioId === 1) return true;
+    if (usuario.rol === 'profesor' && n.usuarioId === 2) return true;
+    if (usuario.rol === 'alumno' && n.usuarioId === 3 && Number(usuario.alumnoId) === 1) return true;
+    return false;
   },
-  async marcarTodasLeidas(usuarioId) {
-    (DB.notificaciones || []).forEach((n) => { if (n.usuarioId === Number(usuarioId)) n.leida = true; });
-    save();
-    return { ok: true };
-  }
+  _globales() {
+    return [
+      { id: 900001, scope:'todos', titulo:'Entrega de calificaciones', desc:'Consulta las fechas de cierre y entrega del periodo actual.', fecha:'2026-10-05T08:00:00', tipo:'academico', leida:false },
+      { id: 900002, scope:'todos', titulo:'Consejo técnico escolar', desc:'Actividad institucional programada para el 16 de octubre.', fecha:'2026-10-02T10:00:00', tipo:'aviso', leida:false },
+      { id: 900003, scope:'todos', titulo:'Feria de ciencias y tecnología', desc:'Evento institucional programado para el 23 de octubre.', fecha:'2026-10-01T12:00:00', tipo:'aviso', leida:true }
+    ];
+  },
+  async paraUsuario(usuario) {
+    await delay(80);
+    const state = this._readState(usuario);
+    const base = [...this._globales(), ...(DB.notificaciones || []).filter(n => this._aplica(n, usuario))];
+    const unique = [...new Map(base.map(n => [String(n.id), n])).values()];
+    return unique.map(n => ({ ...n, leida: state[n.id] ?? Boolean(n.leida) }))
+      .sort((a,b) => String(b.fecha).localeCompare(String(a.fecha)));
+  },
+  async contarNoLeidasPara(usuario) { return (await this.paraUsuario(usuario)).filter(n => !n.leida).length; },
+  async marcarLeidaPara(id, usuario) {
+    const state = this._readState(usuario); state[id] = true; this._writeState(usuario, state); return { ok:true };
+  },
+  async marcarTodasLeidasPara(usuario) {
+    const items = await this.paraUsuario(usuario), state = this._readState(usuario);
+    items.forEach(n => { state[n.id] = true; }); this._writeState(usuario, state); return { ok:true };
+  },
+  // API anterior, conservada para compatibilidad.
+  async porUsuario(usuarioId) { await delay(80); return (DB.notificaciones || []).filter(n => n.usuarioId === Number(usuarioId)).sort((a,b)=>b.fecha.localeCompare(a.fecha)); },
+  async contarNoLeidas(usuarioId) { return (DB.notificaciones || []).filter(n => n.usuarioId === Number(usuarioId) && !n.leida).length; },
+  async marcarLeida(id) { const n=byId(DB.notificaciones,id); if(n){n.leida=true;save();} return {ok:true}; },
+  async marcarTodasLeidas(usuarioId) { (DB.notificaciones||[]).forEach(n=>{if(n.usuarioId===Number(usuarioId))n.leida=true});save();return{ok:true}; }
 };
 
 // ============================================================

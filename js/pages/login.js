@@ -2,6 +2,29 @@ import { UI } from '../core/ui.js';
 import { Auth } from '../core/auth.js';
 import { AuthService } from '../services/auth.service.js';
 
+function getInstitutionConfig() {
+  try {
+    const cfg = JSON.parse(localStorage.getItem('colegio_institution_v1') || '{}');
+    return cfg && typeof cfg === 'object' ? cfg : {};
+  } catch { return {}; }
+}
+
+function esc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+function applyInstitutionLoginBranding() {
+  try {
+    const cfg = JSON.parse(localStorage.getItem('colegio_institution_v1') || '{}');
+    const name = cfg.nombreColegio || 'Sistema Escolar';
+    const title = document.getElementById('loginInstName');
+    if (title) title.textContent = name;
+    document.title = `Iniciar sesión · ${name}`;
+    document.body.dataset.loginTheme = cfg.loginTema === 'azul-oscuro' ? 'azul-oscuro' : 'verde-claro';
+  } catch { document.body.dataset.loginTheme = 'verde-claro'; }
+}
+applyInstitutionLoginBranding();
+
 if (Auth.init()) {
   location.replace('app.html');
 } else {
@@ -103,14 +126,15 @@ function initLoginPage() {
   });
 
   document.getElementById('contactLink').addEventListener('click', () => {
+    const cfg = getInstitutionConfig();
     UI.modal({
       title: 'Contacto',
       body: `
         <div style="color:var(--text-secondary);line-height:1.9;font-size:var(--fs-sm)">
-          <div><strong style="color:var(--text-primary)">Servicios Escolares</strong></div>
-          <div><i class="fas fa-envelope" style="width:18px;color:var(--c-brand-500)"></i> soporte@institucion.edu</div>
-          <div><i class="fas fa-phone" style="width:18px;color:var(--c-brand-500)"></i> +52 (81) 0000 0000</div>
-          <div><i class="fas fa-clock" style="width:18px;color:var(--c-brand-500)"></i> Lun a Vie · 8:00 - 16:00</div>
+          <div><strong style="color:var(--text-primary)">${esc(cfg.nombreColegio || 'Servicios Escolares')}</strong></div>
+          <div><i class="fas fa-envelope" style="width:18px;color:var(--c-brand-500)"></i> ${esc(cfg.email || 'Sin correo registrado')}</div>
+          <div><i class="fas fa-phone" style="width:18px;color:var(--c-brand-500)"></i> ${esc(cfg.telefono || 'Sin teléfono registrado')}</div>
+          <div><i class="fas fa-location-dot" style="width:18px;color:var(--c-brand-500)"></i> ${esc(cfg.direccion || 'Sin dirección registrada')}</div>
         </div>`
     });
   });

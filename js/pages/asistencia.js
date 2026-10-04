@@ -1,6 +1,6 @@
 import {
-  GruposService, AlumnosService, AsistenciaService,
-  ProfesoresService, AsistenciaProfesoresService
+  GruposService, AlumnosService, AsistenciaService, MateriasService,
+  ProfesoresService, AsistenciaProfesoresService, _db
 } from '../services/data.service.js';
 import { UI, escapeHtml } from '../core/ui.js';
 import { emptyState } from '../components/loading.js';
@@ -18,7 +18,7 @@ export async function renderAsistencia(container) {
   const puedeEditar = Auth.hasRole('admin') || Auth.hasRole('profesor');
   let tabActual = 'alumnos';
 
-  const stateA = { grupoId: null, dia: null, fecha: null };
+  const stateA = { grupoId: null, materiaId: null, dia: null, fecha: null };
   const stateP = { fecha: null };
 
   container.innerHTML = `
@@ -74,11 +74,13 @@ export async function renderAsistencia(container) {
           }).join('')}
         </div>
       </div>
+      <div id="materiasWrap"></div>
       <div id="diasWrap"></div>
       <div id="listaWrap"></div>
     `;
 
     const gruposGrid = viewWrap.querySelector('#gruposGrid');
+    const materiasWrap = viewWrap.querySelector('#materiasWrap');
     const diasWrap = viewWrap.querySelector('#diasWrap');
     const listaWrap = viewWrap.querySelector('#listaWrap');
 
@@ -87,12 +89,54 @@ export async function renderAsistencia(container) {
         gruposGrid.querySelectorAll('.grupo-card').forEach((c) => c.classList.remove('active'));
         card.classList.add('active');
         stateA.grupoId = Number(card.dataset.grupo);
+        stateA.materiaId = null;
         stateA.dia = null;
         stateA.fecha = null;
+        diasWrap.innerHTML = '';
         listaWrap.innerHTML = '';
-        renderDias();
+        renderMaterias();
       });
     });
+
+    async function renderMaterias() {
+      const grupo = grupos.find((g) => g.id === stateA.grupoId);
+      if (!grupo) return;
+      const db = _db();
+      let asignaciones = (db.materiaGrupo || []).filter((mg) => mg.grupoId === stateA.grupoId);
+      if (Auth.hasRole('profesor')) {
+        asignaciones = asignaciones.filter((mg) => mg.profesorId === Number(Auth.user.profesorId));
+      }
+      const materias = await MateriasService.todos();
+      const disponibles = asignaciones
+        .map((mg) => materias.find((m) => m.id === mg.materiaId))
+        .filter(Boolean);
+
+      if (!disponibles.length) {
+        materiasWrap.innerHTML = `<div class="card">${emptyState({ icon: 'fa-book-open', title: 'Sin materias asignadas', message: 'No hay materias disponibles para registrar asistencia en este grupo.' })}</div>`;
+        return;
+      }
+
+      materiasWrap.innerHTML = `
+        <div class="card" style="margin-bottom:var(--sp-4)">
+          <div class="card-header"><h3 class="card-title"><i class="fas fa-book-open"></i> Selecciona una materia · ${escapeHtml(grupo.nombre)}</h3></div>
+          <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap">
+            ${disponibles.map((m) => `<button class="btn btn-secondary" data-materia="${m.id}"><i class="fas fa-book"></i> ${escapeHtml(m.nombre)}</button>`).join('')}
+          </div>
+        </div>`;
+
+      materiasWrap.querySelectorAll('[data-materia]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          materiasWrap.querySelectorAll('[data-materia]').forEach((b) => { b.classList.remove('btn-primary'); b.classList.add('btn-secondary'); });
+          btn.classList.remove('btn-secondary');
+          btn.classList.add('btn-primary');
+          stateA.materiaId = Number(btn.dataset.materia);
+          stateA.dia = null;
+          stateA.fecha = null;
+          listaWrap.innerHTML = '';
+          renderDias();
+        });
+      });
+    }
 
     function renderDias() {
       const grupo = grupos.find((g) => g.id === stateA.grupoId);
@@ -124,11 +168,12 @@ export async function renderAsistencia(container) {
     }
 
     async function renderLista() {
-      if (!stateA.grupoId || !stateA.dia) return;
+      if (!stateA.grupoId || !stateA.materiaId || !stateA.dia) return;
       listaWrap.innerHTML = `<div class="skeleton-block" style="height:300px"></div>`;
 
       const grupo = grupos.find((g) => g.id === stateA.grupoId);
-      const items = await AsistenciaService.porGrupoFecha(stateA.grupoId, stateA.fecha);
+      const materia = (await MateriasService.todos()).find((m) => m.id === stateA.materiaId);
+      const items = await AsistenciaService.porGrupoFechaMateria(stateA.grupoId, stateA.fecha, stateA.materiaId);
 
       if (!items.length) {
         listaWrap.innerHTML = `<div class="card">${emptyState({ icon: 'fa-users', title: `Sin alumnos en ${grupo.nombre}` })}</div>`;
@@ -144,7 +189,7 @@ export async function renderAsistencia(container) {
       listaWrap.innerHTML = `
         <div class="card">
           <div class="card-header">
-            <h3 class="card-title"><i class="fas fa-clipboard-check"></i> ${escapeHtml(grupo.nombre)} · ${stateA.dia} · ${formatoFecha(stateA.fecha)}</h3>
+            <h3 class="card-title"><i class="fas fa-clipboard-check"></i> ${escapeHtml(grupo.nombre)} · ${escapeHtml(materia?.nombre || 'Materia')} · ${stateA.dia} · ${formatoFecha(stateA.fecha)}</h3>
             ${puedeEditar ? `<button class="btn btn-primary" id="btnGuardar"><i class="fas fa-floppy-disk"></i> Guardar asistencia</button>` : ''}
           </div>
           <div class="stats-grid" style="margin-bottom:var(--sp-4)">
@@ -190,7 +235,7 @@ export async function renderAsistencia(container) {
           UI.buttonLoading(btn, true);
           try {
             const lista = Object.entries(estados).map(([alumnoId, estado]) => ({ alumnoId: Number(alumnoId), estado }));
-            await AsistenciaService.guardarLista(stateA.grupoId, stateA.fecha, 1, lista);
+            await AsistenciaService.guardarLista(stateA.grupoId, stateA.fecha, stateA.materiaId, lista);
             UI.toast('Asistencia guardada', 'success');
             renderLista();
           } catch (err) { UI.toast(err.message, 'error'); }

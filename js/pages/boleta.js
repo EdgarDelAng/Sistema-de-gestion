@@ -5,7 +5,8 @@ import { PeriodSelector } from '../components/period-selector.js';
 
 export async function renderBoleta(container) {
   // ⬇️ Alumno solo ve su propia boleta
-  const alumnoId = Auth.user.alumnoId || 1;
+  const alumnoId = Number(Auth.user.alumnoId);
+  if (!alumnoId) { container.innerHTML = `<div class="card" style="padding:var(--sp-8);text-align:center"><h2>Cuenta sin expediente vinculado</h2><p class="text-muted">Vuelve a iniciar sesión con tu matrícula para consultar tu boleta.</p></div>`; return; }
   const k = await KardexService.porAlumno(alumnoId);
   const cfg = await ConfigService.obtener();
   const sel = PeriodSelector.current;

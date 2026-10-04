@@ -8,7 +8,11 @@ export async function renderDashboardAlumno(container) {
   const saludo = getSaludo();
   const stats = await StatsService.resumen();
   const cfg = ConfigService.actual();
-  const alumnoId = u.alumnoId || 1;
+  const alumnoId = Number(u.alumnoId);
+  if (!alumnoId) {
+    container.innerHTML = `<div class="card" style="padding:var(--sp-8);text-align:center"><i class="fas fa-user-lock" style="font-size:2rem;color:var(--c-warning)"></i><h2 style="margin-top:var(--sp-3)">Cuenta sin expediente vinculado</h2><p class="text-muted">Cierra sesión e inicia nuevamente con tu matrícula. Si el problema continúa, contacta a Servicios Escolares.</p></div>`;
+    return;
+  }
   const alumno = await AlumnosService.obtener(alumnoId);
   const horarios = await HorariosService.porGrupo(alumno.grupoId);
   const proxima = horarios[0];

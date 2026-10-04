@@ -10,7 +10,11 @@ export async function renderDashboardProfesor(container) {
   const materias = await CatalogosService.materias();
   const cfg = ConfigService.actual();
   const db = _db();
-  const profesorId = u.profesorId || 1;
+  const profesorId = Number(u.profesorId);
+  if (!profesorId) {
+    container.innerHTML = `<div class="card" style="padding:var(--sp-8);text-align:center"><i class="fas fa-user-lock" style="font-size:2rem;color:var(--c-warning)"></i><h2 style="margin-top:var(--sp-3)">Cuenta sin ficha docente vinculada</h2><p class="text-muted">Cierra sesión e inicia nuevamente con tu matrícula docente.</p></div>`;
+    return;
+  }
   const asignaciones = (db.materiaGrupo || []).filter(x => x.profesorId === profesorId);
   const grupoIds = [...new Set(asignaciones.map(x => x.grupoId))];
   const materiaIds = [...new Set(asignaciones.map(x => x.materiaId))];

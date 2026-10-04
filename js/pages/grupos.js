@@ -19,8 +19,8 @@ export async function renderGrupos(container) {
   container.innerHTML = `
     <div class="page-head">
       <div>
-        <h1 class="page-title"><i class="fas fa-users"></i> Grupos</h1>
-        <p class="page-sub">Gestión de grupos, tutores y distribución de alumnos</p>
+        <h1 class="page-title"><i class="fas fa-users"></i> ${Auth.hasRole('profesor') ? 'Mis grupos' : 'Grupos'}</h1>
+        <p class="page-sub">${Auth.hasRole('profesor') ? 'Consulta los grupos en los que tienes materias asignadas' : 'Gestión de grupos, tutores y distribución de alumnos'}</p>
       </div>
       ${puedeEditar ? `
         <button class="btn btn-primary" id="btnNuevo">
@@ -82,7 +82,7 @@ export async function renderGrupos(container) {
     tbody.innerHTML = `<tr><td colspan="10"><div class="skeleton-block" style="height:200px;margin:var(--sp-3)"></div></td></tr>`;
     statsWrap.innerHTML = `<div class="skeleton-block" style="height:100px;margin-bottom:var(--sp-4)"></div>`;
 
-    const [grupos, profesores, alumnos, materias, calificaciones, db] = await Promise.all([
+    let [grupos, profesores, alumnos, materias, calificaciones, db] = await Promise.all([
       GruposService.todos(),
       ProfesoresService.todos(),
       AlumnosService.todos(),
@@ -90,6 +90,13 @@ export async function renderGrupos(container) {
       CalificacionesService.todos(),
       Promise.resolve((await import('../services/data.service.js'))._db())
     ]);
+
+    if (Auth.hasRole('profesor')) {
+      const misGrupos = new Set((db.materiaGrupo || [])
+        .filter((mg) => mg.profesorId === Number(Auth.user.profesorId))
+        .map((mg) => mg.grupoId));
+      grupos = grupos.filter((g) => misGrupos.has(g.id));
+    }
 
     // Enriquecer cada grupo
     const enriquecidos = grupos.map((g) => {
