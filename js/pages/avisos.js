@@ -1,6 +1,7 @@
 import { AvisosService } from '../services/data.service.js';
 import { UI, escapeHtml } from '../core/ui.js';
 import { Auth } from '../core/auth.js';
+import { ComunicacionService } from '../services/school-ops.service.js';
 import { Validators, Validacion } from '../components/form-validator.js';
 import { emptyState } from '../components/loading.js';
 import { statusBadge } from '../components/status-badge.js';
@@ -207,6 +208,7 @@ async function formAviso(id, onSave) {
           <input class="input" id="a_adj" value="${escapeHtml(a.adjunto || '')}" placeholder="Ej: Convocatoria.pdf">
           <div class="field-hint">Solo el nombre del archivo. La carga real se conectará con backend.</div>
         </div>
+        <label class="check-row" style="grid-column:1/-1"><input type="checkbox" id="a_notificar" ${id?'':'checked'}><span><strong>Enviar notificación a destinatarios</strong><small>La publicación aparecerá también en el centro de notificaciones.</small></span></label>
       </div>`,
     footer: `
       <button class="btn btn-secondary" data-action="close">Cancelar</button>
@@ -246,7 +248,12 @@ async function formAviso(id, onSave) {
     try {
       if (id) await AvisosService.actualizar(id, data);
       else await AvisosService.crear(data);
-      UI.toast(id ? 'Aviso actualizado' : 'Aviso publicado', 'success');
+      if (!id && overlay.querySelector('#a_notificar')?.checked) {
+        const roles = data.dirigidoA === 'todos' ? ['admin','profesor','alumno'] : data.dirigidoA === 'alumnos' ? ['alumno'] : [data.dirigidoA];
+        await ComunicacionService.notificarUsuarios(data.titulo, data.contenido.slice(0,120), roles);
+      }
+      const futuro = data.fecha > new Date().toISOString().slice(0,10);
+      UI.toast(id ? 'Aviso actualizado' : futuro ? 'Aviso programado' : 'Aviso publicado', 'success');
       close();
       onSave?.();
     } catch (err) { UI.toast(err.message, 'error'); UI.buttonLoading(btn, false); }

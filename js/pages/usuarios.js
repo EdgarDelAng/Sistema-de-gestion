@@ -1,6 +1,7 @@
 import { renderDataTable } from '../components/data-table.js';
 import { UsuariosService } from '../services/data.service.js';
 import { UI, escapeHtml } from '../core/ui.js';
+import { RolesService } from '../services/school-ops.service.js';
 
 export async function renderUsuarios(container) {
   await renderDataTable(container, {
@@ -46,6 +47,13 @@ export async function renderUsuarios(container) {
       reload();
     }
   });
+  const head = container.querySelector('.page-head');
+  if (head) { const actions=head.querySelector('div:last-child')||head; const btn=document.createElement('button'); btn.className='btn btn-secondary'; btn.innerHTML='<i class="fas fa-key"></i> Roles y permisos'; btn.onclick=()=>abrirRoles(); actions.appendChild(btn); }
+}
+
+async function abrirRoles(){
+ const roles=await RolesService.listar(); const permisos=[['alumnos.ver','Consultar alumnos'],['alumnos.crear','Crear alumnos'],['alumnos.editar','Editar alumnos'],['alumnos.baja','Bajas'],['inscripciones.gestionar','Gestionar inscripciones'],['calificaciones.ver','Consultar calificaciones'],['calificaciones.editar','Capturar calificaciones'],['asistencia.ver','Consultar asistencia'],['asistencia.editar','Capturar asistencia'],['reportes.ver','Consultar reportes'],['reportes.exportar','Exportar reportes'],['usuarios.gestionar','Gestionar usuarios'],['configuracion.editar','Editar configuración']];
+ const {overlay,close}=UI.modal({title:'Roles y permisos',size:'lg',body:`<div class="role-tabs">${Object.entries(roles).map(([id,r],i)=>`<button class="${i?'':'active'}" data-role-tab="${id}">${escapeHtml(r.nombre)}</button>`).join('')}</div><div id="roleEditor"></div>`,footer:`<button class="btn btn-secondary" data-action="close">Cerrar</button><button class="btn btn-primary" id="saveRole">Guardar permisos</button>`}); let current=Object.keys(roles)[0]; const paint=()=>{const r=roles[current]; overlay.querySelector('#roleEditor').innerHTML=`<div class="role-editor-head"><div><h3>${escapeHtml(r.nombre)}</h3><p>${escapeHtml(r.descripcion||'')}</p></div><span class="badge badge-neutral">${r.permisos.length} permisos</span></div><div class="permission-grid">${permisos.map(([id,label])=>`<label class="permission-item"><input type="checkbox" value="${id}" ${r.permisos.includes(id)?'checked':''}><span><strong>${label}</strong><small>${id}</small></span></label>`).join('')}</div>`}; paint(); overlay.querySelectorAll('[data-role-tab]').forEach(b=>b.onclick=()=>{overlay.querySelectorAll('[data-role-tab]').forEach(x=>x.classList.toggle('active',x===b));current=b.dataset.roleTab;paint()}); overlay.querySelector('#saveRole').onclick=async()=>{roles[current].permisos=[...overlay.querySelectorAll('#roleEditor input:checked')].map(x=>x.value);await RolesService.guardar(current,{permisos:roles[current].permisos});UI.toast('Permisos actualizados','success');close()};
 }
 
 async function formUsuario(id = null) {

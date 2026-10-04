@@ -1,79 +1,20 @@
 import { ConfigService } from '../services/data.service.js';
+import { CiclosService, RolesService, ComunicacionService } from '../services/school-ops.service.js';
 import { UI, escapeHtml } from '../core/ui.js';
-import { Auth } from '../core/auth.js';
 
-export async function renderConfiguracion(container) {
-  const cfg = await ConfigService.obtener();
-
-  container.innerHTML = `
-    <div class="page-head">
-      <div>
-        <h1 class="page-title"><i class="fas fa-gear"></i> Configuración</h1>
-        <p class="page-sub">Parámetros del sistema escolar</p>
-      </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:var(--sp-5)">
-      <div class="card">
-        <div class="card-header"><h3 class="card-title"><i class="fas fa-building"></i> Información institucional</h3></div>
-        <div class="field"><label>Nombre del colegio</label><input class="input" id="c_nombre" value="${escapeHtml(cfg.nombreColegio)}"></div>
-        <div class="field"><label>Dirección</label><input class="input" id="c_dir" value="${escapeHtml(cfg.direccion)}"></div>
-        <div class="field"><label>Teléfono</label><input class="input" id="c_tel" value="${escapeHtml(cfg.telefono)}"></div>
-        <div class="field"><label>Correo</label><input class="input" type="email" id="c_email" value="${escapeHtml(cfg.email)}"></div>
-      </div>
-
-      <div class="card">
-        <div class="card-header"><h3 class="card-title"><i class="fas fa-calendar"></i> Parámetros académicos</h3></div>
-        <div class="field"><label>Ciclo escolar</label><input class="input" id="c_ciclo" value="${escapeHtml(cfg.cicloEscolar)}"></div>
-        <div class="field"><label>Escala mínima aprobatoria</label><input class="input" type="number" min="1" max="10" id="c_escala" value="${cfg.escalaMinima}"></div>
-        <div class="field"><label>Número de periodos</label><input class="input" type="number" min="1" max="4" id="c_periodos" value="${cfg.periodos}"></div>
-      </div>
-
-      <div class="card" style="grid-column:1/-1;border:1px solid var(--c-danger-bg)">
-        <div class="card-header"><h3 class="card-title" style="color:var(--c-danger)"><i class="fas fa-triangle-exclamation"></i> Zona de peligro</h3></div>
-        <p style="color:var(--text-secondary);font-size:var(--fs-sm);margin-bottom:var(--sp-4)">
-          Restablece la base de datos local a su estado inicial. Se perderán todos los cambios realizados.
-        </p>
-        <button class="btn btn-danger" id="btnReset"><i class="fas fa-rotate-left"></i> Restablecer datos de prueba</button>
-      </div>
-    </div>
-
-    <div style="display:flex;justify-content:flex-end;gap:var(--sp-3);margin-top:var(--sp-5)">
-      <button class="btn btn-secondary" id="btnCancelar">Cancelar</button>
-      <button class="btn btn-primary" id="btnGuardar"><i class="fas fa-floppy-disk"></i> Guardar cambios</button>
-    </div>
-  `;
-
-  container.querySelector('#btnGuardar').addEventListener('click', async (e) => {
-    const data = {
-      nombreColegio: container.querySelector('#c_nombre').value.trim(),
-      direccion: container.querySelector('#c_dir').value.trim(),
-      telefono: container.querySelector('#c_tel').value.trim(),
-      email: container.querySelector('#c_email').value.trim(),
-      cicloEscolar: container.querySelector('#c_ciclo').value.trim(),
-      escalaMinima: Number(container.querySelector('#c_escala').value) || 6,
-      periodos: Number(container.querySelector('#c_periodos').value) || 3
-    };
-    const btn = e.currentTarget;
-    UI.buttonLoading(btn, true);
-    try {
-      await ConfigService.guardar(data);
-      UI.toast('Configuración guardada', 'success');
-    } catch (err) { UI.toast(err.message, 'error'); }
-    UI.buttonLoading(btn, false);
-  });
-
-  container.querySelector('#btnCancelar').addEventListener('click', () => renderConfiguracion(container));
-
-  container.querySelector('#btnReset').addEventListener('click', async () => {
-    const ok = await UI.confirm({
-      title: 'Restablecer datos',
-      message: '¿Restablecer toda la base de datos local a su estado inicial? Esto borrará todos los cambios.',
-      danger: true, confirmText: 'Sí, restablecer'
-    });
-    if (!ok) return;
-    ConfigService.reset();
-    UI.toast('Datos restablecidos', 'success');
-    setTimeout(() => location.reload(), 800);
-  });
+export async function renderConfiguracion(container){
+ const [cfg,ciclos,seg,com]=await Promise.all([ConfigService.obtener(),CiclosService.listar(),RolesService.seguridad(),ComunicacionService.programacion()]);
+ container.innerHTML=`<div class="page-head"><div><h1 class="page-title">Configuración institucional</h1><p class="page-sub">Institución, ciclos escolares, seguridad y comunicación del sistema.</p></div><button class="btn btn-primary" id="saveCfg">Guardar cambios</button></div>
+ <div class="settings-layout"><nav class="settings-nav"><button class="active" data-tab="institucion">Institución</button><button data-tab="academico">Ciclos y periodos</button><button data-tab="seguridad">Seguridad</button><button data-tab="comunicacion">Comunicación</button><button data-tab="sistema">Sistema</button></nav><div class="settings-content">
+ <section class="settings-panel active" data-panel="institucion"><div class="section-heading"><div><h2>Información institucional</h2><p>Datos usados en documentos, reportes y encabezados.</p></div></div><div class="form-grid"><label class="field span-2"><span>Nombre de la institución</span><input class="input" id="c_nombre" value="${escapeHtml(cfg.nombreColegio)}"></label><label class="field span-2"><span>Dirección</span><input class="input" id="c_dir" value="${escapeHtml(cfg.direccion)}"></label><label class="field"><span>Teléfono</span><input class="input" id="c_tel" value="${escapeHtml(cfg.telefono)}"></label><label class="field"><span>Correo institucional</span><input class="input" id="c_email" value="${escapeHtml(cfg.email)}"></label></div></section>
+ <section class="settings-panel" data-panel="academico"><div class="section-heading"><div><h2>Ciclos escolares</h2><p>El ciclo activo alimenta el selector global y los nuevos registros.</p></div><button class="btn btn-secondary btn-sm" id="newCycle">Nuevo ciclo</button></div><div class="cycle-list">${ciclos.map(c=>`<article class="cycle-card ${c.estado==='activo'?'is-active':''}"><div><strong>${c.nombre}</strong><span>${c.inicio} — ${c.fin}</span></div><span class="badge badge-${c.estado==='activo'?'success':'neutral'}">${c.estado}</span><div class="cycle-periods">${c.periodos.map(p=>`<span>${p.nombre} · ${p.estado}</span>`).join('')}</div>${c.estado!=='activo'?`<button class="btn btn-sm btn-secondary" data-active-cycle="${c.id}">Establecer activo</button>`:''}</article>`).join('')}</div><div class="form-grid compact"><label class="field"><span>Escala mínima aprobatoria</span><input class="input" type="number" min="1" max="10" id="c_escala" value="${cfg.escalaMinima}"></label><label class="field"><span>Periodos de evaluación</span><input class="input" type="number" min="1" max="6" id="c_periodos" value="${cfg.periodos}"></label></div></section>
+ <section class="settings-panel" data-panel="seguridad"><div class="section-heading"><div><h2>Políticas de seguridad</h2><p>Simuladas en frontend y preparadas para migrar al backend.</p></div></div><div class="form-grid"><label class="field"><span>Expiración de sesión (minutos)</span><input class="input" id="s_exp" type="number" value="${seg.expiracionMin}"></label><label class="field"><span>Intentos máximos de acceso</span><input class="input" id="s_int" type="number" value="${seg.intentosMax}"></label><label class="check-row span-2"><input type="checkbox" id="s_change" ${seg.requerirCambioInicial?'checked':''}><span><strong>Solicitar cambio de contraseña inicial</strong><small>Para cuentas nuevas o restablecidas.</small></span></label><label class="check-row span-2"><input type="checkbox" id="s_log" ${seg.registrarAccesos?'checked':''}><span><strong>Registrar accesos</strong><small>Conservar actividad para auditoría.</small></span></label></div></section>
+ <section class="settings-panel" data-panel="comunicacion"><div class="section-heading"><div><h2>Comunicación</h2><p>Preferencias para avisos y notificaciones institucionales.</p></div></div><div class="form-grid"><label class="field span-2"><span>Firma predeterminada</span><input class="input" id="m_firma" value="${escapeHtml(com.firma)}"></label><label class="check-row span-2"><input type="checkbox" id="m_prog" ${com.permitirProgramacion?'checked':''}><span><strong>Permitir programación de avisos</strong><small>Publicaciones con fecha futura.</small></span></label><label class="check-row span-2"><input type="checkbox" id="m_read" ${com.confirmarLectura?'checked':''}><span><strong>Solicitar confirmación de lectura</strong><small>Disponible para comunicaciones importantes.</small></span></label></div></section>
+ <section class="settings-panel" data-panel="sistema"><div class="section-heading"><div><h2>Mantenimiento</h2><p>Herramientas locales de esta versión sin backend.</p></div></div><div class="danger-zone"><div><strong>Restablecer datos de demostración</strong><p>Elimina cambios locales y vuelve a cargar los datos iniciales.</p></div><button class="btn btn-danger" id="btnReset">Restablecer</button></div></section></div></div>`;
+ container.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{container.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));container.querySelectorAll('[data-panel]').forEach(x=>x.classList.toggle('active',x.dataset.panel===b.dataset.tab))});
+ container.querySelectorAll('[data-active-cycle]').forEach(b=>b.onclick=async()=>{await CiclosService.setActivo(b.dataset.activeCycle);UI.toast('Ciclo escolar actualizado','success');renderConfiguracion(container)});
+ container.querySelector('#newCycle').onclick=()=>nuevoCiclo(container);
+ container.querySelector('#saveCfg').onclick=async e=>{UI.buttonLoading(e.currentTarget,true);await ConfigService.guardar({nombreColegio:container.querySelector('#c_nombre').value.trim(),direccion:container.querySelector('#c_dir').value.trim(),telefono:container.querySelector('#c_tel').value.trim(),email:container.querySelector('#c_email').value.trim(),escalaMinima:Number(container.querySelector('#c_escala').value)||6,periodos:Number(container.querySelector('#c_periodos').value)||3});await RolesService.guardarSeguridad({expiracionMin:Number(container.querySelector('#s_exp').value)||60,intentosMax:Number(container.querySelector('#s_int').value)||5,requerirCambioInicial:container.querySelector('#s_change').checked,registrarAccesos:container.querySelector('#s_log').checked});await ComunicacionService.guardar({firma:container.querySelector('#m_firma').value.trim(),permitirProgramacion:container.querySelector('#m_prog').checked,confirmarLectura:container.querySelector('#m_read').checked});UI.buttonLoading(e.currentTarget,false);UI.toast('Configuración guardada','success')};
+ container.querySelector('#btnReset').onclick=async()=>{if(await UI.confirm({title:'Restablecer datos',message:'Se perderán los cambios guardados localmente.',danger:true,confirmText:'Restablecer'})){ConfigService.reset();localStorage.removeItem('colegio_ops_v2');location.reload()}};
 }
+function nuevoCiclo(container){const y=new Date().getFullYear()+1;const {overlay,close}=UI.modal({title:'Nuevo ciclo escolar',body:`<div class="form-grid"><label class="field span-2"><span>Nombre</span><input class="input" id="cy_name" value="${y}-${y+1}"></label><label class="field"><span>Inicio</span><input class="input" id="cy_start" type="date"></label><label class="field"><span>Fin</span><input class="input" id="cy_end" type="date"></label></div>`,footer:`<button class="btn btn-secondary" data-action="close">Cancelar</button><button class="btn btn-primary" id="cy_save">Crear ciclo</button>`});overlay.querySelector('#cy_save').onclick=async()=>{const nombre=overlay.querySelector('#cy_name').value.trim(),inicio=overlay.querySelector('#cy_start').value,fin=overlay.querySelector('#cy_end').value;if(!nombre||!inicio||!fin)return UI.toast('Completa todos los datos','warning');await CiclosService.guardar({id:nombre,nombre,inicio,fin,estado:'programado',periodos:[{id:`p1-${nombre}`,nombre:`Agosto-Diciembre ${nombre.slice(0,4)}`,inicio,fin:`${nombre.slice(0,4)}-12-18`,estado:'programado'},{id:`p2-${nombre}`,nombre:`Enero-Junio ${nombre.slice(-4)}`,inicio:`${nombre.slice(-4)}-01-10`,fin,estado:'programado'}]});close();UI.toast('Ciclo creado','success');renderConfiguracion(container)}}

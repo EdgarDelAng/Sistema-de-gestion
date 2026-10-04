@@ -1,6 +1,7 @@
 import { Auth } from '../core/auth.js';
 import { UI, escapeHtml } from '../core/ui.js';
-import { KardexService, NotificacionesService } from '../services/data.service.js';
+import { KardexService, NotificacionesService, UsuariosService } from '../services/data.service.js';
+import { AuditService } from '../services/audit.service.js';
 import { Validators, Validacion } from '../components/form-validator.js';
 
 // Almacén local de contraseñas (solo demo; en backend va al servidor)
@@ -177,15 +178,31 @@ export async function renderMiPerfil(container) {
     Auth.user.telefono = container.querySelector('#p_tel').value.trim();
     Auth.user.iniciales = Auth.user.nombre.split(' ').map((x) => x[0]).slice(0, 2).join('').toUpperCase();
 
-    // Persistir sesión
+    // Persistir el perfil en la sesión y como preferencia local de la cuenta demo.
+    // Esto evita que al cerrar sesión el login hardcodeado restaure el nombre anterior.
     Auth.save(Auth.user, false);
+    try {
+      const key = `colegio_profile_${Auth.user.rol}_${Auth.user.usuario}`;
+      localStorage.setItem(key, JSON.stringify({
+        nombre: Auth.user.nombre,
+        email: Auth.user.email,
+        telefono: Auth.user.telefono,
+        iniciales: Auth.user.iniciales
+      }));
+      // Mantener sincronizado el registro visible en Administración > Usuarios.
+      if (Auth.user.id) await UsuariosService.actualizar(Auth.user.id, {
+        nombre: Auth.user.nombre, email: Auth.user.email, telefono: Auth.user.telefono
+      });
+    } catch (err) { console.warn('No se pudo sincronizar el perfil con Usuarios:', err); }
 
+    AuditService.log('actualizó', 'perfil', `${Auth.user.nombre} actualizó sus datos personales`);
     UI.buttonLoading(btn, false);
     UI.toast('Perfil actualizado correctamente', 'success');
 
-    // Actualizar header y sidebar
+    // Actualizar header inmediatamente.
     document.getElementById('userName').textContent = Auth.user.nombre;
     document.getElementById('userAvatar').textContent = Auth.user.iniciales;
+    window.dispatchEvent(new CustomEvent('school:profile-changed', { detail: { user: Auth.user } }));
   });
 
   container.querySelector('#btnResetPerfil').addEventListener('click', () => renderMiPerfil(container));

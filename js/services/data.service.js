@@ -1,6 +1,22 @@
 import { delay } from '../core/api.js';
+import { AuditService } from './audit.service.js';
 
-const KEY = 'colegio_db_v5';
+const KEY = 'colegio_db_v6';
+const INSTITUTION_KEY = 'colegio_institution_v1';
+
+function readInstitution(fallback = {}) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(INSTITUTION_KEY) || 'null');
+    return saved && typeof saved === 'object' ? { ...fallback, ...saved } : { ...fallback };
+  } catch { return { ...fallback }; }
+}
+function writeInstitution(data = {}) {
+  const current = readInstitution({});
+  const next = { ...current, ...data };
+  try { localStorage.setItem(INSTITUTION_KEY, JSON.stringify(next)); } catch {}
+  return next;
+}
+
 
 // ============================================================
 // UTILIDADES PARA GENERAR DATOS
@@ -295,6 +311,17 @@ function generarSeed() {
     { id: 3, alumnoId: 1, nombre: 'Constancia de estudios',   tipo: 'Constancia',   fecha: '2026-09-01', tamano: '98 KB',  url: '#' },
     { id: 4, alumnoId: 1, nombre: 'Comprobante de inscripción',tipo: 'Comprobante', fecha: '2026-08-15', tamano: '76 KB',  url: '#' }
   ];
+  // Expedientes demo distribuidos para que perfiles, reportes y pendientes tengan contenido realista.
+  let docId = 5;
+  alumnos.slice(1, 48).forEach((a, idx) => {
+    documentos.push({ id: docId++, alumnoId: a.id, nombre: 'Comprobante de inscripción', tipo: 'Comprobante', fecha: '2026-08-15', tamano: `${72 + (idx % 18)} KB`, url: '#' });
+    if (idx % 2 === 0) documentos.push({ id: docId++, alumnoId: a.id, nombre: 'Acta de nacimiento validada', tipo: 'Expediente', fecha: '2026-08-12', tamano: `${110 + (idx % 30)} KB`, url: '#' });
+    if (idx % 5 === 0) documentos.push({ id: docId++, alumnoId: a.id, nombre: 'Constancia de estudios', tipo: 'Constancia', fecha: '2026-09-18', tamano: `${90 + (idx % 20)} KB`, url: '#' });
+  });
+  let tramiteId = 5;
+  alumnos.slice(2, 24).forEach((a, idx) => {
+    if (idx % 3 === 0) tramites.push({ id: tramiteId++, alumnoId: a.id, tipo: idx % 2 ? 'Kárdex' : 'Constancia de estudios', fechaSolicitud: `2026-09-${String(10 + (idx % 15)).padStart(2,'0')}`, estado: ['Solicitado','En revisión','Disponible'][idx % 3], folio: `TRA-2026-${String(tramiteId).padStart(4,'0')}`, observaciones: idx % 3 === 1 ? 'Validación de control escolar' : '' });
+  });
   // ---------- ASISTENCIA DE PROFESORES ----------
   const asistenciasProfesores = [];
   const fechasProfes = ['2026-09-08','2026-09-09','2026-09-10','2026-09-11','2026-09-12','2026-09-15','2026-09-16','2026-09-17','2026-09-18','2026-09-19'];
@@ -318,7 +345,11 @@ function generarSeed() {
   
   const notificaciones = [
     { id: 1, usuarioId: 3, titulo: 'Nueva calificación publicada', desc: 'Matemáticas · Parcial 3', fecha: '2026-09-12T09:20:00', leida: false, tipo: 'academico' },
-    { id: 2, usuarioId: 1, titulo: 'Nuevo aviso publicado', desc: 'Suspensión el 28 de septiembre', fecha: '2026-09-01T12:00:00', leida: false, tipo: 'aviso' }
+    { id: 2, usuarioId: 1, titulo: 'Nuevo aviso publicado', desc: 'Suspensión el 28 de septiembre', fecha: '2026-09-01T12:00:00', leida: false, tipo: 'aviso' },
+    { id: 3, usuarioId: 1, titulo: 'Trámites pendientes de revisión', desc: 'Control escolar tiene solicitudes abiertas.', fecha: '2026-09-18T10:15:00', leida: false, tipo: 'tramite' },
+    { id: 4, usuarioId: 1, titulo: 'Cierre de captura próximo', desc: 'Revisa calificaciones antes del cierre del periodo.', fecha: '2026-09-20T08:40:00', leida: false, tipo: 'academico' },
+    { id: 5, usuarioId: 2, titulo: 'Captura de asistencia disponible', desc: 'Tus grupos están listos para el registro del día.', fecha: '2026-09-20T07:30:00', leida: false, tipo: 'asistencia' },
+    { id: 6, usuarioId: 3, titulo: 'Próxima entrega de calificaciones', desc: 'Consulta el calendario académico.', fecha: '2026-09-19T16:10:00', leida: true, tipo: 'calendario' }
   ];
 
   const calendario = [
@@ -326,7 +357,12 @@ function generarSeed() {
     { id: 2, titulo: 'Reunión de padres', fecha: '2026-09-11', tipo: 'reunion', descripcion: '18:00 · Auditorio' },
     { id: 3, titulo: '1er Parcial - Exámenes', fecha: '2026-09-21', tipo: 'examen', descripcion: 'Comienzan las evaluaciones' },
     { id: 4, titulo: 'Suspensión de clases', fecha: '2026-09-28', tipo: 'suspension', descripcion: 'Capacitación docente' },
-    { id: 5, titulo: 'Entrega de calificaciones', fecha: '2026-10-05', tipo: 'entrega', descripcion: 'Primer parcial' }
+    { id: 5, titulo: 'Entrega de calificaciones', fecha: '2026-10-05', tipo: 'entrega', descripcion: 'Primer parcial' },
+    { id: 6, titulo: 'Consejo técnico escolar', fecha: '2026-10-16', tipo: 'reunion', descripcion: 'Sesión de seguimiento académico · Sala de juntas' },
+    { id: 7, titulo: 'Feria de ciencias y tecnología', fecha: '2026-10-23', tipo: 'evento', descripcion: 'Exposición de proyectos por grado' },
+    { id: 8, titulo: 'Segundo periodo de evaluación', fecha: '2026-11-09', tipo: 'examen', descripcion: 'Inicio de evaluaciones del segundo parcial' },
+    { id: 9, titulo: 'Entrega de boletas', fecha: '2026-11-20', tipo: 'entrega', descripcion: 'Entrega a madres, padres y tutores' },
+    { id: 10, titulo: 'Festival de invierno', fecha: '2026-12-11', tipo: 'evento', descripcion: 'Actividad cultural de cierre de semestre' }
   ];
 
   const config = {
@@ -350,7 +386,7 @@ function generarSeed() {
       asistenciaProfesor: asistenciasProfesores.length + 1,
       horario: horarios.length + 1,
       aviso: 4, usuario: 4, inscripcion: inscripciones.length + 1,
-      tramite: 3, documento: 2, notificacion: 3, calendario: 6
+      tramite: tramiteId, documento: docId, notificacion: 7, calendario: 11
     }
   };
 }
@@ -377,8 +413,22 @@ let DB = (() => {
   return fresh;
 })();
 
-function save() { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) { console.warn('Save error:', e); } }
-function reset() { DB = generarSeed(); save(); }
+// La identidad institucional es global: no depende del usuario o rol activo.
+// Migramos una configuración existente la primera vez y después la usamos como fuente canónica.
+const existingInstitution = (() => {
+  try { return JSON.parse(localStorage.getItem(INSTITUTION_KEY) || 'null'); } catch { return null; }
+})();
+if (!existingInstitution) writeInstitution(DB.config || {});
+DB.config = readInstitution(DB.config || {});
+try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch {}
+
+function emitDataChange(detail = {}) { try { window.dispatchEvent(new CustomEvent('school:data-changed', { detail })); } catch {} }
+function save(detail = {}) {
+  if (DB.config) DB.config = readInstitution(DB.config);
+  try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) { console.warn('Save error:', e); }
+  emitDataChange(detail);
+}
+function reset() { const institution = readInstitution(DB.config || {}); DB = generarSeed(); DB.config = { ...DB.config, ...institution }; save(); }
 
 const byId = (arr, id) => (arr || []).find((x) => x.id === Number(id));
 
@@ -434,7 +484,8 @@ function makeCrud(tabla, idKey) {
       const nuevo = { id: nextIdFor(idKey), ...data };
       if (!DB[tabla]) DB[tabla] = [];
       DB[tabla].push(nuevo);
-      save();
+      save({ type: 'create', entity: tabla, id: nuevo.id });
+      AuditService.log('creó', tabla, data.nombre || data.titulo || `#${nuevo.id}`);
       return { ...nuevo };
     },
     async actualizar(id, data) {
@@ -442,13 +493,15 @@ function makeCrud(tabla, idKey) {
       const idx = (DB[tabla] || []).findIndex((x) => x.id === Number(id));
       if (idx === -1) throw new Error('Registro no encontrado');
       DB[tabla][idx] = { ...DB[tabla][idx], ...data };
-      save();
+      save({ type: 'update', entity: tabla, id: Number(id) });
+      AuditService.log('actualizó', tabla, data.nombre || data.titulo || `#${id}`);
       return { ...DB[tabla][idx] };
     },
     async eliminar(id) {
       await delay(120);
       DB[tabla] = (DB[tabla] || []).filter((x) => x.id !== Number(id));
-      save();
+      save({ type: 'delete', entity: tabla, id: Number(id) });
+      AuditService.log('eliminó', tabla, `#${id}`);
       return { ok: true };
     }
   };
@@ -486,7 +539,8 @@ export const AlumnosService = {
     const matricula = 'A2026-' + String(id).padStart(4, '0');
     const nuevo = { id, matricula, estado: 'activo', turno: 'matutino', ...data };
     DB.alumnos.push(nuevo);
-    save();
+    save({ type: 'create', entity: 'alumnos', id });
+    AuditService.log('creó','alumno',`${nuevo.nombre||''} ${nuevo.apellidos||''}`.trim());
     return { ...nuevo };
   },
   async actualizar(id, data) {
@@ -494,7 +548,8 @@ export const AlumnosService = {
     const idx = DB.alumnos.findIndex((a) => a.id === Number(id));
     if (idx === -1) throw new Error('Alumno no encontrado');
     DB.alumnos[idx] = { ...DB.alumnos[idx], ...data };
-    save();
+    save({ type: 'update', entity: 'alumnos', id: Number(id) });
+    AuditService.log('actualizó','alumno',`${DB.alumnos[idx].nombre||''} ${DB.alumnos[idx].apellidos||''}`.trim());
     return { ...DB.alumnos[idx] };
   },
   async eliminar(id) {
@@ -503,7 +558,8 @@ export const AlumnosService = {
     DB.asistencias = (DB.asistencias || []).filter((a) => a.alumnoId !== Number(id));
     DB.inscripciones = (DB.inscripciones || []).filter((i) => i.alumnoId !== Number(id));
     DB.alumnos = DB.alumnos.filter((a) => a.id !== Number(id));
-    save();
+    save({ type: 'delete', entity: 'alumnos', id: Number(id) });
+    AuditService.log('eliminó','alumno',`#${id}`);
     return { ok: true };
   }
 };
@@ -531,13 +587,22 @@ export const ProfesoresService = {
     const alumnos = (DB.alumnos || []).filter((a) => gruposIds.includes(a.grupoId));
     const clases = (DB.horarios || []).filter((h) => h.profesorId === Number(id));
     return { profesor: { ...p }, grupos, materias, alumnos, clases, asignaciones };
+  },
+  async eliminar(id) {
+    await delay(150); id=Number(id); const p=byId(DB.profesores,id);
+    DB.materiaGrupo=(DB.materiaGrupo||[]).filter(x=>x.profesorId!==id);
+    DB.horarios=(DB.horarios||[]).filter(x=>x.profesorId!==id);
+    DB.asistenciasProfesores=(DB.asistenciasProfesores||[]).filter(x=>x.profesorId!==id);
+    (DB.grupos||[]).forEach(g=>{if(g.tutorId===id)g.tutorId=null});
+    DB.profesores=(DB.profesores||[]).filter(x=>x.id!==id);
+    save({type:'delete',entity:'profesores',id}); AuditService.log('eliminó','profesor',p?`${p.nombre} ${p.apellidos}`:`#${id}`); return {ok:true};
   }
 };
 
 // ============================================================
 // GRUPOS, MATERIAS, INSCRIPCIONES, USUARIOS
 // ============================================================
-export const GruposService = makeCrud('grupos', 'grupo');
+export const GruposService = { ...makeCrud('grupos','grupo'), async eliminar(id){ await delay(150); id=Number(id); const g=byId(DB.grupos,id); (DB.alumnos||[]).forEach(a=>{if(a.grupoId===id){a.grupoId=null;a.grado='Sin asignar'}}); DB.materiaGrupo=(DB.materiaGrupo||[]).filter(x=>x.grupoId!==id); DB.horarios=(DB.horarios||[]).filter(x=>x.grupoId!==id); DB.grupos=(DB.grupos||[]).filter(x=>x.id!==id); save({type:'delete',entity:'grupos',id}); AuditService.log('eliminó','grupo',g?.nombre||`#${id}`); return {ok:true}; } };
 export const InscripcionesService = makeCrud('inscripciones', 'inscripcion');
 export const UsuariosService = makeCrud('usuarios', 'usuario');
 export const TramitesService = {
@@ -562,6 +627,7 @@ export const CalendarioService = makeCrud('calendario', 'calendario');
 
 export const MateriasService = {
   ...makeCrud('materias', 'materia'),
+  async eliminar(id) { await delay(150); id=Number(id); const m=byId(DB.materias,id); DB.materiaGrupo=(DB.materiaGrupo||[]).filter(x=>x.materiaId!==id); DB.horarios=(DB.horarios||[]).filter(x=>x.materiaId!==id); DB.calificaciones=(DB.calificaciones||[]).filter(x=>x.materiaId!==id); DB.asistencias=(DB.asistencias||[]).filter(x=>x.materiaId!==id); DB.materias=(DB.materias||[]).filter(x=>x.id!==id); save({type:'delete',entity:'materias',id}); AuditService.log('eliminó','materia',m?.nombre||`#${id}`); return {ok:true}; },
   async conProfesores(id) {
     await delay(80);
     const asignaciones = (DB.materiaGrupo || []).filter((mg) => mg.materiaId === Number(id));
@@ -833,8 +899,18 @@ export const KardexService = {
 // CONFIGURACIÓN
 // ============================================================
 export const ConfigService = {
-  async obtener() { await delay(60); return { ...DB.config }; },
-  async guardar(data) { await delay(150); DB.config = { ...DB.config, ...data }; save(); return { ...DB.config }; },
+  async obtener() { await delay(60); DB.config = readInstitution(DB.config || {}); return { ...DB.config }; },
+  async guardar(data) {
+    await delay(150);
+    const anterior = readInstitution(DB.config || {});
+    const global = writeInstitution(data);
+    DB.config = { ...DB.config, ...global };
+    try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch {}
+    emitDataChange({ type: 'config', entity: 'configuracion', global: true });
+    AuditService.log('actualizó','configuración', data.nombreColegio && data.nombreColegio !== anterior.nombreColegio ? `Institución: ${anterior.nombreColegio} → ${data.nombreColegio}` : 'Preferencias institucionales');
+    return { ...DB.config };
+  },
+  actual() { DB.config = readInstitution(DB.config || {}); return { ...DB.config }; },
   reset() { reset(); }
 };
 

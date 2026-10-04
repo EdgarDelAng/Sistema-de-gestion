@@ -10,13 +10,13 @@
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/system-redesign.css">
   <link rel="stylesheet" href="css/print.css" media="print">
   <style>
     body {
       display: grid;
       place-items: center;
-      background:
-        linear-gradient(135deg, #0b2b44 0%, #123c5b 45%, #1d5f89 100%);
+      background: var(--bg-app);
       padding: var(--sp-4);
       min-height: 100vh;
       position: relative;
@@ -26,9 +26,7 @@
       content: '';
       position: absolute;
       inset: 0;
-      background-image:
-        radial-gradient(circle at 15% 20%, rgba(127,185,224,.12) 0 22%, transparent 22.5%),
-        radial-gradient(circle at 88% 80%, rgba(44,127,184,.15) 0 28%, transparent 28.5%);
+      background-image: radial-gradient(circle at 15% 20%, color-mix(in srgb, var(--c-brand-500) 7%, transparent) 0 18%, transparent 18.5%);
       pointer-events: none;
     }
     .login-shell {
@@ -53,14 +51,14 @@
     .login-logo .logo-circle {
       width: 64px; height: 64px;
       border-radius: var(--r-lg);
-      background: linear-gradient(135deg, var(--c-brand-500), var(--c-brand-600));
+      background: var(--c-brand-500);
       display: grid; place-items: center;
       color: #fff; font-size: 1.8rem;
-      box-shadow: 0 8px 24px rgba(44,127,184,.3);
+      box-shadow: none;
     }
     .login-logo h1 {
       font-size: var(--fs-lg);
-      color: var(--c-brand-900);
+      color: var(--text-primary);
       font-weight: 700;
       letter-spacing: -.02em;
       text-align: center;

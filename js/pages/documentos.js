@@ -6,7 +6,7 @@ import { emptyState } from '../components/loading.js';
 const ICONO_TIPO = {
   'Boleta': 'fa-file-invoice',
   'Kárdex': 'fa-file-lines',
-  'Constancia': 'fa-file-certificate',
+  'Constancia': null,
   'Comprobante': 'fa-receipt'
 };
 
@@ -52,7 +52,7 @@ export async function renderDocumentos(container) {
         <div class="card" style="padding:var(--sp-4)">
           <div style="display:flex;align-items:flex-start;gap:var(--sp-3)">
             <div style="width:44px;height:44px;border-radius:var(--r-md);background:var(--c-info-bg);color:var(--c-info);display:grid;place-items:center;font-size:1.2rem;flex-shrink:0">
-              <i class="fas ${ICONO_TIPO[d.tipo] || 'fa-file'}"></i>
+              ${docIcon(d.tipo)}
             </div>
             <div style="flex:1;min-width:0">
               <div style="font-weight:700;color:var(--c-brand-900);font-size:var(--fs-base);line-height:1.3">${escapeHtml(d.nombre)}</div>
@@ -95,4 +95,8 @@ export async function renderDocumentos(container) {
         </div>`
     });
   }));
+}
+function docIcon(tipo) {
+ if(tipo==='Constancia') return `<svg class="doc-type-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3.5h8l3 3V20a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/><path d="M14.5 3.5v4h4"/><path d="M8.5 11h6M8.5 14h6M8.5 17h3.5"/><path d="m14.5 16.5 1 1 2-2"/></svg>`;
+ return `<i class="fas ${ICONO_TIPO[tipo] || 'fa-file'}" aria-hidden="true"></i>`;
 }

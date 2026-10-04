@@ -144,6 +144,7 @@ export async function renderAlumnos(container) {
           <table class="table">
             <thead>
               <tr>
+                ${puedeEditar ? `<th style="width:42px"><input type="checkbox" id="selectAllAlumnos" aria-label="Seleccionar todos"></th>` : ''}
                 <th>Matrícula</th>
                 <th>Nombre</th>
                 <th style="text-align:center">Edad</th>
@@ -161,6 +162,19 @@ export async function renderAlumnos(container) {
     `;
 
     engancharFilas(conPromedios);
+    if (puedeEditar) {
+      const selected = new Set();
+      const updateBulk = () => {
+        let bar = alumnosWrap.querySelector('#bulkAlumnos');
+        if (!selected.size) { bar?.remove(); return; }
+        if (!bar) { bar=document.createElement('div');bar.id='bulkAlumnos';bar.className='bulk-bar';alumnosWrap.append(bar); }
+        bar.innerHTML=`<strong>${selected.size} seleccionado${selected.size!==1?'s':''}</strong><button class="btn btn-sm btn-secondary" id="bulkExport">Exportar CSV</button><button class="btn btn-sm btn-secondary" id="bulkActive">Marcar activos</button>`;
+        bar.querySelector('#bulkExport').onclick=()=>{const rows=conPromedios.filter(a=>selected.has(a.id));const csv=['Matricula,Nombre,Grado,Promedio',...rows.map(a=>`${a.matricula},"${a.nombre} ${a.apellidos}",${a.grado},${a.promedio||0}`)].join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download='alumnos-seleccionados.csv';link.click();URL.revokeObjectURL(url);};
+        bar.querySelector('#bulkActive').onclick=async()=>{await Promise.all([...selected].map(id=>AlumnosService.actualizar(id,{estado:'activo'})));UI.toast('Alumnos actualizados','success');await renderTablaAlumnos();};
+      };
+      alumnosWrap.querySelectorAll('.row-select').forEach(c=>c.onchange=()=>{const id=Number(c.dataset.select);c.checked?selected.add(id):selected.delete(id);updateBulk()});
+      const all=alumnosWrap.querySelector('#selectAllAlumnos'); if(all) all.onchange=()=>{alumnosWrap.querySelectorAll('.row-select').forEach(c=>{c.checked=all.checked;const id=Number(c.dataset.select);all.checked?selected.add(id):selected.delete(id)});updateBulk()};
+    }
 
     alumnosWrap.querySelector('#buscarAlumnosGrupo').addEventListener('input', (e) => {
       const q = e.target.value.toLowerCase().trim();
@@ -170,7 +184,7 @@ export async function renderAlumnos(container) {
       );
       tbody.innerHTML = filtered.length
         ? filtered.map((a) => filaAlumno(a)).join('')
-        : `<tr><td colspan="6">${emptyState({ icon: 'fa-search', title: 'Sin resultados' })}</td></tr>`;
+        : `<tr><td colspan="${puedeEditar ? 7 : 6}">${emptyState({ icon: 'fa-search', title: 'Sin resultados' })}</td></tr>`;
       engancharFilas(filtered);
     });
 
@@ -211,6 +225,7 @@ export async function renderAlumnos(container) {
     const promClass = prom >= 8 ? 'success' : prom >= 6 ? 'warning' : 'danger';
     return `
       <tr data-id="${a.id}">
+        ${puedeEditar ? `<td><input type="checkbox" class="row-select" data-select="${a.id}" aria-label="Seleccionar ${escapeHtml(a.nombre)}"></td>` : ''}
         <td><code style="font-size:.8em;color:var(--text-secondary)">${escapeHtml(a.matricula)}</code></td>
         <td>
           <div style="display:flex;align-items:center;gap:var(--sp-2)">

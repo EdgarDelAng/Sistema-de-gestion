@@ -1,3 +1,4 @@
+import { initGlobalSearch } from './components/global-search.js';
 // ============================================================
 // app.js — Bootstrap de la aplicación
 // ============================================================
@@ -6,6 +7,7 @@ import { Auth, ROLES } from './core/auth.js';
 import { Router } from './core/router.js';
 import { UI } from './core/ui.js';
 import { AuthService } from './services/auth.service.js';
+import { NotificacionesService, ConfigService } from './services/data.service.js';
 import { renderSidebar } from './components/sidebar.js';
 import { PeriodSelector } from './components/period-selector.js';
 import { ModeToggle } from './components/mode-toggle.js';
@@ -68,6 +70,7 @@ function bootstrap() {
     avisos:               () => import('./pages/avisos.js').then(m => m.renderAvisos),
     notificaciones:       () => import('./pages/notificaciones.js').then(m => m.renderNotificaciones),
     reportes:             () => import('./pages/reportes.js').then(m => m.renderReportes),
+    auditoria:            () => import('./pages/auditoria.js').then(m => m.renderAuditoria),
     usuarios:             () => import('./pages/usuarios.js').then(m => m.renderUsuarios),
     configuracion:        () => import('./pages/configuracion.js').then(m => m.renderConfiguracion),
     ayuda:                () => import('./pages/ayuda.js').then(m => m.renderAyuda),
@@ -122,6 +125,14 @@ function bootstrap() {
   }
 
   // ============ HEADER ============
+  function renderBranding() {
+    const cfg = ConfigService.actual();
+    const name = cfg.nombreColegio || 'Sistema Escolar';
+    document.title = `Sistema Escolar · ${name}`;
+    const footer = document.getElementById('footerBrand');
+    if (footer) footer.textContent = `© ${new Date().getFullYear()} ${name} · Sistema Escolar Integrado`;
+  }
+
   function renderHeader() {
     const u = Auth.user;
     const initials = u.iniciales || u.nombre.split(' ').map((x) => x[0]).slice(0, 2).join('').toUpperCase();
@@ -177,7 +188,18 @@ function bootstrap() {
   function bindNotifications() {
     const btn = document.getElementById('notifBtn');
     if (!btn) return;
-    btn.addEventListener('click', () => Router.navigate('notificaciones'));
+    let panel = document.getElementById('notifPopover');
+    if (!panel) { panel = document.createElement('div'); panel.id='notifPopover'; panel.className='notif-popover'; panel.hidden=true; document.body.append(panel); }
+    const refresh = async () => {
+      const items = await NotificacionesService.paraUsuario(Auth.user); const unread=items.filter(n=>!n.leida).length;
+      const dot=document.getElementById('notifDot'); if(dot){dot.textContent=unread;dot.style.display=unread?'grid':'none'}
+      panel.innerHTML=`<div class="notif-popover-head"><div><strong>Notificaciones</strong><small>${unread} sin leer</small></div><button class="btn btn-sm btn-secondary" id="seeAllNotif">Ver todas</button></div><div class="notif-popover-list">${items.slice(0,6).map(n=>`<button class="notif-popover-item ${n.leida?'':'unread'}" data-nid="${n.id}"><span class="notif-dot-mini"></span><span><strong>${n.titulo}</strong><small>${n.desc||''}</small></span></button>`).join('')||'<div class="command-empty">Sin notificaciones.</div>'}</div>`;
+      panel.querySelector('#seeAllNotif')?.addEventListener('click',()=>{panel.hidden=true;Router.navigate('notificaciones')});
+      panel.querySelectorAll('[data-nid]').forEach(el=>el.onclick=async()=>{await NotificacionesService.marcarLeidaPara(Number(el.dataset.nid), Auth.user);await refresh()});
+    };
+    btn.addEventListener('click', async (e) => { e.stopPropagation(); panel.hidden=!panel.hidden; if(!panel.hidden) await refresh(); });
+    document.addEventListener('click',e=>{if(!panel.contains(e.target)&&e.target!==btn&&!btn.contains(e.target))panel.hidden=true});
+    refresh();
   }
 
   // ============ TEMA ============
@@ -199,27 +221,13 @@ function bootstrap() {
   function bindGlobalSearch() {
     const search = document.getElementById('globalSearch');
     if (!search) return;
-
+    initGlobalSearch(search);
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault(); search.focus(); search.select(); return;
+        e.preventDefault(); search.focus(); search.select();
       }
-      if (e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
-        e.preventDefault(); search.focus(); return;
-      }
-      if (e.key === 'Escape' && document.activeElement === search) {
-        search.value = ''; search.blur();
-      }
-    });
-
-    search.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && search.value.trim()) {
-        const q = search.value.trim();
-        sessionStorage.setItem('busquedaGlobal', q);
-        if (Auth.can('alumnos')) Router.navigate('alumnos');
-        else if (Auth.can('mis-calificaciones')) Router.navigate('mis-calificaciones');
-        UI.toast(`Buscando "${q}"…`, 'info');
-        search.value = ''; search.blur();
+      if (e.key === '/' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) {
+        e.preventDefault(); search.focus();
       }
     });
   }
@@ -242,12 +250,13 @@ function bootstrap() {
         <p>Los datos recabados se utilizan exclusivamente para fines académicos y administrativos. El acceso está restringido por rol.</p>
       </div>`));
     document.getElementById('footerHelp')?.addEventListener('click', () => Router.navigate('ayuda'));
-    document.getElementById('footerContact')?.addEventListener('click', () => showModal('Contacto',
+    document.getElementById('footerContact')?.addEventListener('click', () => { const cfg=ConfigService.actual(); showModal('Contacto',
       `<div style="color:var(--text-secondary);line-height:1.9;font-size:var(--fs-sm)">
-        <div><strong style="color:var(--text-primary)">Servicios Escolares</strong></div>
-        <div><i class="fas fa-envelope" style="width:18px;color:var(--c-brand-500)"></i> soporte@institucion.edu</div>
-        <div><i class="fas fa-phone" style="width:18px;color:var(--c-brand-500)"></i> +52 (81) 0000 0000</div>
-      </div>`));
+        <div><strong style="color:var(--text-primary)">${cfg.nombreColegio || 'Servicios Escolares'}</strong></div>
+        <div><i class="fas fa-envelope" style="width:18px;color:var(--c-brand-500)"></i> ${cfg.email || '—'}</div>
+        <div><i class="fas fa-phone" style="width:18px;color:var(--c-brand-500)"></i> ${cfg.telefono || '—'}</div>
+        <div><i class="fas fa-location-dot" style="width:18px;color:var(--c-brand-500)"></i> ${cfg.direccion || '—'}</div>
+      </div>`); });
   }
 
   // ============ MENÚ MÓVIL ============
@@ -297,6 +306,7 @@ function bootstrap() {
 
   // ============ INIT ============
   renderSidebar();
+  renderBranding();
   renderHeader();
   PeriodSelector.render();
   registerRoutes();
@@ -308,9 +318,12 @@ function bootstrap() {
   bindFooterLinks();
   bindMobileMenu();
   bindSessionWatchdog();
+  window.addEventListener('school:data-changed', (e) => {
+    if (e.detail?.entity === 'configuracion') { renderBranding(); renderSidebar(); }
+  });
   Router.start();
 
-  console.log('%c🏫 Colegio Papu · Sistema Escolar', 'font-size:14px;font-weight:700;color:#2563eb');
+  console.log('%cSistema Escolar' , 'font-size:14px;font-weight:700;color:#2563eb');
   console.log('Sesión:', Auth.user);
   console.log('Tema:', ModeToggle.current);
 }

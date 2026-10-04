@@ -6,6 +6,7 @@ import { escapeHtml } from '../core/ui.js';
 import { PeriodSelector } from '../components/period-selector.js';
 import { statusBadge } from '../components/status-badge.js';
 import { emptyState, blockSkeleton } from '../components/loading.js';
+import { DocumentosOficialesService } from '../services/school-ops.service.js';
 
 const TIPOS = [
   { id: 'alumnos',       label: 'Alumnos',           icon: 'fa-user-graduate',     color: 'var(--c-brand-500)' },
@@ -31,6 +32,7 @@ export async function renderReportes(container) {
         <p class="page-sub">Informes institucionales · ${escapeHtml(sel.ciclo)} · ${escapeHtml(sel.periodo)}</p>
       </div>
       <div style="display:flex;gap:var(--sp-2)">
+        <button class="btn btn-secondary" id="btnDocs"><i class="fas fa-file-signature"></i> Documentos oficiales</button>
         <button class="btn btn-secondary" id="btnPrint"><i class="fas fa-print"></i> Imprimir</button>
         <button class="btn btn-primary" id="btnExport"><i class="fas fa-file-excel"></i> Exportar</button>
       </div>
@@ -125,6 +127,8 @@ export async function renderReportes(container) {
   container.querySelector('#f_grado').addEventListener('change', (e) => { filtros.grado = e.target.value; generar(tipoActual); });
   container.querySelector('#f_estado').addEventListener('change', (e) => { filtros.estado = e.target.value; generar(tipoActual); });
   container.querySelector('#btnConsultar').addEventListener('click', () => generar(tipoActual));
+
+  container.querySelector('#btnDocs')?.addEventListener('click', () => abrirDocumentosOficiales());
 
   container.querySelector('#btnPrint').addEventListener('click', () => window.print());
   container.querySelector('#btnExport').addEventListener('click', () => {
@@ -371,3 +375,19 @@ async function reporteKardexGrupal(f) {
 }
 
 import { UI } from '../core/ui.js';
+
+async function abrirDocumentosOficiales(){
+  const alumnos=await AlumnosService.todos();
+  const {overlay,close}=UI.modal({title:'Generar documento oficial',size:'lg',body:`
+    <div class="document-generator">
+      <div class="form-grid">
+        <label class="field span-2"><span>Alumno</span><select class="select" id="docAlumno"><option value="">Selecciona un alumno</option>${alumnos.map(a=>`<option value="${a.id}">${escapeHtml(a.apellidos)}, ${escapeHtml(a.nombre)} · ${escapeHtml(a.matricula)}</option>`).join('')}</select></label>
+        <label class="field span-2"><span>Documento</span><select class="select" id="docTipo"><option value="constancia">Constancia de estudios</option><option value="boleta">Boleta de calificaciones</option><option value="ficha">Ficha del alumno</option><option value="kardex">Kárdex académico</option></select></label>
+      </div>
+      <div class="doc-preview-placeholder"><i class="fas fa-file-lines"></i><div><strong>Documento institucional</strong><span>Se abrirá una vista preparada para imprimir o guardar como PDF desde el navegador.</span></div></div>
+    </div>`,footer:`<button class="btn btn-secondary" data-action="close">Cancelar</button><button class="btn btn-primary" id="genDoc">Generar documento</button>`});
+  overlay.querySelector('#genDoc').onclick=async()=>{const id=Number(overlay.querySelector('#docAlumno').value);const tipo=overlay.querySelector('#docTipo').value;if(!id)return UI.toast('Selecciona un alumno','warning');const {alumno,grupo,db}=await DocumentosOficialesService.datosAlumno(id);const kardex=await KardexService.porAlumno(id);let body='';const nombre=`${alumno.nombre} ${alumno.apellidos}`;if(tipo==='constancia')body=`<h1 class="doc-title">Constancia de estudios</h1><p>Por medio de la presente se hace constar que <strong>${escapeHtml(nombre)}</strong>, matrícula <strong>${escapeHtml(alumno.matricula)}</strong>, se encuentra inscrito(a) como alumno(a) regular en el grupo <strong>${escapeHtml(grupo?.nombre||'—')}</strong> durante el ciclo escolar vigente.</p><p>Se expide la presente para los fines que al interesado convengan.</p><div class="sign"><div>Dirección Escolar</div></div>`;
+  else if(tipo==='ficha')body=`<h1 class="doc-title">Ficha del alumno</h1><table><tr><th>Matrícula</th><td>${escapeHtml(alumno.matricula)}</td></tr><tr><th>Nombre</th><td>${escapeHtml(nombre)}</td></tr><tr><th>Grupo</th><td>${escapeHtml(grupo?.nombre||'—')}</td></tr><tr><th>Correo</th><td>${escapeHtml(alumno.email||'—')}</td></tr><tr><th>Teléfono</th><td>${escapeHtml(alumno.telefono||'—')}</td></tr><tr><th>Tutor</th><td>${escapeHtml(alumno.tutor||'—')}</td></tr><tr><th>Estado</th><td>${escapeHtml(alumno.estado)}</td></tr></table>`;
+  else body=`<h1 class="doc-title">${tipo==='boleta'?'Boleta de calificaciones':'Kárdex académico'}</h1><p><strong>${escapeHtml(nombre)}</strong> · ${escapeHtml(alumno.matricula)} · ${escapeHtml(grupo?.nombre||'—')}</p><table><thead><tr><th>Materia</th><th>P1</th><th>P2</th><th>P3</th><th>Promedio</th><th>Estado</th></tr></thead><tbody>${kardex.filas.map(f=>`<tr><td>${escapeHtml(f.materia?.nombre||'—')}</td><td>${f.notas[1]??'—'}</td><td>${f.notas[2]??'—'}</td><td>${f.notas[3]??'—'}</td><td>${f.promedio.toFixed(1)}</td><td>${f.estado}</td></tr>`).join('')}</tbody></table><p><strong>Promedio general:</strong> ${kardex.promedioGeneral.toFixed(1)}</p>`;
+  DocumentosOficialesService.printHTML(`Documento - ${nombre}`,body);await DocumentosOficialesService.registrar(id,`${tipo==='constancia'?'Constancia de estudios':tipo==='boleta'?'Boleta de calificaciones':tipo==='ficha'?'Ficha del alumno':'Kárdex académico'}`,tipo);UI.toast('Documento generado y registrado','success');close();};
+}

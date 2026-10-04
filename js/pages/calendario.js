@@ -1,150 +1,17 @@
 import { CalendarioService } from '../services/data.service.js';
-import { escapeHtml } from '../core/ui.js';
+import { UI, escapeHtml } from '../core/ui.js';
+import { Auth } from '../core/auth.js';
+import { AuditService } from '../services/audit.service.js';
 
-const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-
-const TIPO_COLOR = {
-  inicio: { bg: 'var(--c-info-bg)', fg: 'var(--c-info-fg)', icon: 'fa-play' },
-  examen: { bg: 'var(--c-danger-bg)', fg: 'var(--c-danger-fg)', icon: 'fa-pen-to-square' },
-  suspension: { bg: 'var(--c-warning-bg)', fg: 'var(--c-warning-fg)', icon: 'fa-circle-pause' },
-  reunion: { bg: 'var(--c-info-bg)', fg: 'var(--c-info-fg)', icon: 'fa-users' },
-  entrega: { bg: 'var(--c-success-bg)', fg: 'var(--c-success-fg)', icon: 'fa-file-invoice' },
-  fin: { bg: 'var(--c-danger-bg)', fg: 'var(--c-danger-fg)', icon: 'fa-flag-checkered' },
-  vacaciones: { bg: 'var(--c-warning-bg)', fg: 'var(--c-warning-fg)', icon: 'fa-umbrella-beach' }
-};
-
-export async function renderCalendario(container) {
-  const hoy = new Date();
-  let year = hoy.getFullYear();
-  let month = 8; // Septiembre 2026
-
-  const eventos = await CalendarioService.todos();
-
-  container.innerHTML = `
-    <div class="page-head">
-      <div>
-        <h1 class="page-title"><i class="fas fa-calendar"></i> Calendario escolar</h1>
-        <p class="page-sub">Eventos y fechas importantes del ciclo</p>
-      </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:2fr 1fr;gap:var(--sp-5)">
-      <div class="card">
-        <div class="card-header">
-          <div style="display:flex;align-items:center;gap:var(--sp-3)">
-            <button class="btn-icon" id="prevMes"><i class="fas fa-chevron-left"></i></button>
-            <h3 class="card-title" style="min-width:200px;justify-content:center" id="mesTitle"></h3>
-            <button class="btn-icon" id="nextMes"><i class="fas fa-chevron-right"></i></button>
-          </div>
-          <button class="btn btn-sm btn-secondary" id="hoyBtn">Hoy</button>
-        </div>
-        <div id="gridCalendario"></div>
-      </div>
-
-      <div class="card">
-        <div class="card-header"><h3 class="card-title"><i class="fas fa-list"></i> Próximos eventos</h3></div>
-        <div id="proximos"></div>
-      </div>
-    </div>
-  `;
-
-  const render = () => {
-    const title = container.querySelector('#mesTitle');
-    title.textContent = `${MESES[month]} ${year}`;
-
-    // Cuadrícula
-    const primerDia = new Date(year, month, 1).getDay();
-    const diasEnMes = new Date(year, month + 1, 0).getDate();
-    const eventosMes = eventos.filter((e) => {
-      const d = new Date(e.fecha + 'T12:00:00');
-      return d.getFullYear() === year && d.getMonth() === month;
-    });
-
-    let html = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">`;
-    DIAS.forEach((d) => {
-      html += `<div style="text-align:center;font-size:var(--fs-xs);font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:var(--sp-2) 0;letter-spacing:.05em">${d}</div>`;
-    });
-    for (let i = 0; i < primerDia; i++) html += `<div></div>`;
-    for (let d = 1; d <= diasEnMes; d++) {
-      const fecha = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const eventosDia = eventosMes.filter((e) => e.fecha === fecha);
-      const esHoy = hoy.getFullYear() === year && hoy.getMonth() === month && hoy.getDate() === d;
-      html += `
-        <div style="min-height:70px;padding:6px;border:1px solid var(--border);border-radius:var(--r-md);background:${esHoy ? 'var(--c-brand-100)' : '#fff'};cursor:${eventosDia.length ? 'pointer' : 'default'}"
-             data-fecha="${fecha}">
-          <div style="font-size:var(--fs-xs);font-weight:700;color:${esHoy ? 'var(--c-brand-600)' : 'var(--text-primary)'};margin-bottom:4px">${d}</div>
-          ${eventosDia.slice(0, 2).map((e) => {
-            const c = TIPO_COLOR[e.tipo] || TIPO_COLOR.inicio;
-            return `<div style="font-size:.65rem;padding:2px 4px;border-radius:var(--r-sm);background:${c.bg};color:${c.fg};font-weight:600;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.titulo)}</div>`;
-          }).join('')}
-          ${eventosDia.length > 2 ? `<div style="font-size:.6rem;color:var(--text-muted)">+${eventosDia.length - 2} más</div>` : ''}
-        </div>`;
-    }
-    html += `</div>`;
-    container.querySelector('#gridCalendario').innerHTML = html;
-
-    container.querySelectorAll('[data-fecha]').forEach((el) => {
-      const fecha = el.dataset.fecha;
-      const eventosDia = eventosMes.filter((e) => e.fecha === fecha);
-      if (!eventosDia.length) return;
-      el.addEventListener('click', () => {
-        UI.modal({
-          title: `Eventos del ${fecha}`,
-          body: eventosDia.map((e) => {
-            const c = TIPO_COLOR[e.tipo] || TIPO_COLOR.inicio;
-            return `
-              <div class="list-item" style="border-left-color:${c.fg}">
-                <i class="fas ${c.icon}" style="color:${c.fg};font-size:1.1rem"></i>
-                <div style="flex:1">
-                  <div class="list-item-title">${escapeHtml(e.titulo)}</div>
-                  <div class="list-item-desc">${escapeHtml(e.descripcion || '')}</div>
-                </div>
-              </div>`;
-          }).join('')
-        });
-      });
-    });
-
-    // Próximos eventos (todos los futuros)
-    const hoyISO = new Date().toISOString().slice(0, 10);
-    const proximos = eventos.filter((e) => e.fecha >= hoyISO).slice(0, 6);
-    const wrapProx = container.querySelector('#proximos');
-    if (!proximos.length) {
-      wrapProx.innerHTML = `<p class="text-muted" style="font-size:var(--fs-sm)">Sin eventos próximos.</p>`;
-    } else {
-      wrapProx.innerHTML = proximos.map((e) => {
-        const c = TIPO_COLOR[e.tipo] || TIPO_COLOR.inicio;
-        const d = new Date(e.fecha + 'T12:00:00');
-        return `
-          <div class="list-item" style="border-left-color:${c.fg}">
-            <div style="width:42px;text-align:center;flex-shrink:0">
-              <div style="font-size:1.15rem;font-weight:800;color:var(--c-brand-900);line-height:1">${d.getDate()}</div>
-              <div style="font-size:.65rem;color:var(--text-muted);text-transform:uppercase;font-weight:600">${MESES[d.getMonth()].slice(0, 3)}</div>
-            </div>
-            <div style="flex:1">
-              <div class="list-item-title" style="font-size:var(--fs-sm)">${escapeHtml(e.titulo)}</div>
-              <div class="list-item-desc" style="font-size:var(--fs-xs)">${escapeHtml(e.descripcion || '')}</div>
-            </div>
-          </div>`;
-      }).join('');
-    }
-  };
-
-  container.querySelector('#prevMes').addEventListener('click', () => {
-    month--; if (month < 0) { month = 11; year--; }
-    render();
-  });
-  container.querySelector('#nextMes').addEventListener('click', () => {
-    month++; if (month > 11) { month = 0; year++; }
-    render();
-  });
-  container.querySelector('#hoyBtn').addEventListener('click', () => {
-    year = hoy.getFullYear(); month = hoy.getMonth(); render();
-  });
-
-  render();
+const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DIAS=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const TIPOS=['inicio','examen','reunion','entrega','suspension','vacaciones','fin'];
+export async function renderCalendario(container){
+ const puedeEditar=Auth.hasRole('admin'); const hoy=new Date(); let cursor=new Date(2026,8,1); let filtro='todos'; let eventos=await CalendarioService.todos();
+ container.innerHTML=`<div class="page-head"><div><h1 class="page-title"><i class="fas fa-calendar-days"></i> Calendario escolar</h1><p class="page-sub">Agenda institucional, evaluaciones, reuniones y fechas clave del ciclo.</p></div>${puedeEditar?'<button class="btn btn-primary" id="nuevoEvento"><i class="fas fa-plus"></i> Nuevo evento</button>':''}</div><div class="filter-bar"><button class="btn btn-secondary btn-sm" id="prev"><i class="fas fa-chevron-left"></i></button><button class="btn btn-secondary btn-sm" id="hoy">Hoy</button><button class="btn btn-secondary btn-sm" id="next"><i class="fas fa-chevron-right"></i></button><strong id="monthLabel" style="min-width:170px"></strong><select class="select" id="tipoFiltro" style="margin-left:auto;max-width:220px"><option value="todos">Todos los eventos</option>${TIPOS.map(t=>`<option value="${t}">${cap(t)}</option>`).join('')}</select></div><div class="calendar-shell"><div class="card"><div class="calendar-grid-wrap"><div class="calendar-grid" id="calendar"></div></div></div><aside class="card"><div class="card-header"><h3 class="card-title">Agenda del mes</h3></div><div id="agenda"></div></aside></div>`;
+ const render=()=>{const y=cursor.getFullYear(),m=cursor.getMonth();container.querySelector('#monthLabel').textContent=`${MESES[m]} ${y}`;const first=new Date(y,m,1),start=new Date(y,m,1-first.getDay());const shown=filtro==='todos'?eventos:eventos.filter(e=>e.tipo===filtro);let html=DIAS.map(d=>`<div class="calendar-weekday">${d}</div>`).join('');for(let i=0;i<42;i++){const d=new Date(start);d.setDate(start.getDate()+i);const iso=localISO(d),inMonth=d.getMonth()===m,isToday=localISO(hoy)===iso,ev=shown.filter(e=>e.fecha===iso);html+=`<div class="calendar-day ${inMonth?'':'is-muted'} ${isToday?'is-today':''}" data-day="${iso}"><div class="calendar-number">${d.getDate()}</div>${ev.slice(0,3).map(e=>`<button class="calendar-event" data-event="${e.id}" data-type="${escapeHtml(e.tipo||'inicio')}">${escapeHtml(e.titulo)}</button>`).join('')}${ev.length>3?`<small>+${ev.length-3} más</small>`:''}</div>`}container.querySelector('#calendar').innerHTML=html;const monthEvents=shown.filter(e=>{const d=new Date(e.fecha+'T12:00:00');return d.getFullYear()===y&&d.getMonth()===m}).sort((a,b)=>a.fecha.localeCompare(b.fecha));container.querySelector('#agenda').innerHTML=monthEvents.length?monthEvents.map(e=>`<button class="list-item" data-event="${e.id}" style="width:100%;text-align:left;background:none;cursor:pointer"><div style="width:42px;text-align:center"><strong>${Number(e.fecha.slice(-2))}</strong><small style="display:block;color:var(--text-muted)">${MESES[m].slice(0,3)}</small></div><div><div class="list-item-title">${escapeHtml(e.titulo)}</div><div class="list-item-desc">${cap(e.tipo||'evento')}</div></div></button>`).join(''):'<div class="empty"><i class="fas fa-calendar-xmark"></i><h4>Sin eventos</h4><p>No hay eventos con este filtro.</p></div>';bindCells();};
+ function bindCells(){container.querySelectorAll('[data-day]').forEach(el=>el.addEventListener('dblclick',()=>puedeEditar&&editEvent(null,el.dataset.day)));container.querySelectorAll('[data-event]').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();const item=eventos.find(x=>x.id===Number(el.dataset.event));editEvent(item)}));}
+ function editEvent(item,fecha=''){if(!puedeEditar&&item){UI.modal({title:item.titulo,body:`<p>${escapeHtml(item.descripcion||'Sin descripción')}</p><p class="text-muted">${item.fecha} · ${cap(item.tipo||'evento')}</p>`});return}const {overlay,close}=UI.modal({title:item?'Editar evento':'Nuevo evento',body:`<form id="eventForm"><div class="form-group"><label class="label">Título</label><input class="input" name="titulo" required maxlength="80" value="${escapeHtml(item?.titulo||'')}"></div><div class="form-grid"><div class="form-group"><label class="label">Fecha</label><input class="input" type="date" name="fecha" required value="${item?.fecha||fecha||localISO(hoy)}"></div><div class="form-group"><label class="label">Tipo</label><select class="select" name="tipo">${TIPOS.map(t=>`<option value="${t}" ${item?.tipo===t?'selected':''}>${cap(t)}</option>`).join('')}</select></div></div><div class="form-group"><label class="label">Descripción</label><textarea class="input" name="descripcion" rows="3">${escapeHtml(item?.descripcion||'')}</textarea></div><div style="display:flex;justify-content:${item?'space-between':'flex-end'};gap:8px;margin-top:18px">${item?'<button type="button" class="btn btn-danger" id="deleteEvent">Eliminar</button>':''}<button class="btn btn-primary">Guardar evento</button></div></form>`});const form=overlay.querySelector('#eventForm');form.onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form));if(item){await CalendarioService.actualizar(item.id,data);AuditService.log('actualizó','evento',data.titulo)}else{await CalendarioService.crear(data);AuditService.log('creó','evento',data.titulo)}eventos=await CalendarioService.todos();close();UI.toast('Evento guardado','success');render()};overlay.querySelector('#deleteEvent')?.addEventListener('click',async()=>{if(await UI.confirm({title:'Eliminar evento',message:'Esta acción quitará el evento del calendario.',confirmText:'Eliminar',danger:true})){await CalendarioService.eliminar(item.id);AuditService.log('eliminó','evento',item.titulo);eventos=await CalendarioService.todos();close();render()}})}
+ container.querySelector('#prev').onclick=()=>{cursor.setMonth(cursor.getMonth()-1);render()};container.querySelector('#next').onclick=()=>{cursor.setMonth(cursor.getMonth()+1);render()};container.querySelector('#hoy').onclick=()=>{cursor=new Date(hoy.getFullYear(),hoy.getMonth(),1);render()};container.querySelector('#tipoFiltro').onchange=e=>{filtro=e.target.value;render()};container.querySelector('#nuevoEvento')?.addEventListener('click',()=>editEvent(null));render();
 }
-
-// Import
-import { UI } from '../core/ui.js';
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);const localISO=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;

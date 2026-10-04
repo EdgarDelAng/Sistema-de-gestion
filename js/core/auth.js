@@ -11,9 +11,10 @@ const PERMISSIONS = {
   [ROLES.ADMIN]: [
     'inicio', 'alumnos', 'profesores', 'materias', 'grupos', 'inscripciones',
     'calificaciones', 'asistencia', 'horarios', 'kardex',
-    'avisos', 'notificaciones',
-    'reportes',
+    'avisos', 'notificaciones', 'calendario',
+    'reportes', 'auditoria',
     'usuarios', 'configuracion',
+    'mi-perfil',
     'ayuda'
   ],
   [ROLES.PROFESOR]: [
@@ -75,6 +76,16 @@ export const Auth = {
   can(section) {
     if (!this.user) return false;
     return (PERMISSIONS[this.user.rol] || []).includes(section);
+  },
+
+  // Permisos por acción para controles finos de interfaz.
+  canAction(action) {
+    if (!this.user) return false;
+    const role = this.user.rol;
+    if (role === ROLES.ADMIN) return true;
+    const professor = ['alumnos.ver','grupos.ver','calificaciones.ver','calificaciones.capturar','asistencia.ver','asistencia.capturar','avisos.ver'];
+    const student = ['calificaciones.ver','asistencia.ver','kardex.ver','avisos.ver','documentos.ver','tramites.ver'];
+    return (role === ROLES.PROFESOR ? professor : student).includes(action);
   },
 
   getDefaultSection() { return 'inicio'; }

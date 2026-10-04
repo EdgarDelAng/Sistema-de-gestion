@@ -1,91 +1,458 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sistema Escolar · Colegio Papu</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-  <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/base.css">
-  <link rel="stylesheet" href="css/components.css">
-  <link rel="stylesheet" href="css/print.css" media="print">
-  <link rel="stylesheet" href="css/print.css" media="print">
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <meta
+    name="theme-color"
+    content="#0f766e"
+  >
+
+  <title>
+    Sistema Escolar
+  </title>
+
+
+  <!-- ======================================================
+       FUENTE
+       ====================================================== -->
+
+  <link
+    rel="preconnect"
+    href="https://fonts.googleapis.com"
+  >
+
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin
+  >
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  >
+
+
+  <!-- ======================================================
+       ICONOS
+       ====================================================== -->
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+  >
+
+
+  <!-- ======================================================
+       ESTILOS BASE
+       ====================================================== -->
+
+  <link
+    rel="stylesheet"
+    href="css/tokens.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="css/base.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="css/components.css"
+  >
+
+
+  <!-- ======================================================
+       NUEVO DISEÑO DEL SISTEMA
+       IMPORTANTE: debe ir después de components.css
+       ====================================================== -->
+
+  <link
+    rel="stylesheet"
+    href="css/system-redesign.css"
+  >
+
+  <link rel="stylesheet" href="css/professional-ux.css">
+  <link rel="stylesheet" href="css/school-operations.css">
+
+
+  <!-- ======================================================
+       IMPRESIÓN
+       ====================================================== -->
+
+  <link
+    rel="stylesheet"
+    href="css/print.css"
+    media="print"
+  >
+
 </head>
+
+
 <body>
 
-  <a href="#view" class="skip-link">Ir al contenido principal</a>
+  <!-- Accesibilidad -->
+  <a
+    href="#view"
+    class="skip-link"
+  >
+    Ir al contenido principal
+  </a>
+
+
+  <!-- ======================================================
+       APLICACIÓN
+       ====================================================== -->
 
   <div class="app-layout">
-    <aside class="sidebar" id="sidebar" aria-label="Menú lateral"></aside>
+
+
+    <!-- ====================================================
+         SIDEBAR
+         Se genera desde sidebar.js
+         ==================================================== -->
+
+    <aside
+      class="sidebar"
+      id="sidebar"
+      aria-label="Menú lateral"
+    ></aside>
+
+
+    <!-- ====================================================
+         ÁREA PRINCIPAL
+         ==================================================== -->
 
     <div class="app-main-area">
-      <header class="app-header" role="banner">
-        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Abrir menú" aria-expanded="false">
-          <i class="fas fa-bars"></i>
+
+
+      <!-- ==================================================
+           HEADER
+           ================================================== -->
+
+      <header
+        class="app-header"
+        role="banner"
+      >
+
+
+        <!-- Botón menú móvil -->
+
+        <button
+          class="mobile-menu-btn"
+          id="mobileMenuBtn"
+          aria-label="Abrir menú"
+          aria-expanded="false"
+          title="Menú"
+        >
+          <i
+            class="fas fa-bars"
+            aria-hidden="true"
+          ></i>
         </button>
 
-        <h1 class="header-title" id="headerTitle" style="font-size:var(--fs-md);font-weight:700;color:var(--c-brand-900);margin:0">Inicio</h1>
 
-        <div class="app-search" role="search">
-          <i class="fas fa-search" aria-hidden="true"></i>
-          <input type="search" id="globalSearch" placeholder="Buscar en el sistema… (Ctrl+K)"
-                 aria-label="Búsqueda global" autocomplete="off" />
+        <!-- Título actual -->
+
+        <h1
+          class="header-title"
+          id="headerTitle"
+        >
+          Inicio
+        </h1>
+
+
+        <!-- ================================================
+             BÚSQUEDA GLOBAL
+             ================================================ -->
+
+        <div
+          class="app-search"
+          role="search"
+        >
+
+          <i
+            class="fas fa-magnifying-glass"
+            aria-hidden="true"
+          ></i>
+
+          <input
+            type="search"
+            id="globalSearch"
+            placeholder="Buscar alumnos, profesores, grupos..."
+            aria-label="Búsqueda global"
+            autocomplete="off"
+          >
+
         </div>
+
+
+        <!-- ================================================
+             ACCIONES
+             ================================================ -->
 
         <div class="header-actions">
-            <button class="header-icon-btn" id="themeBtn" aria-label="Cambiar tema" title="Modo claro/oscuro">
-  <i class="fas fa-moon"></i>
-</button>
-          <div id="periodSelector" aria-label="Selector de ciclo y periodo"></div>
 
-          <button class="header-icon-btn" id="notifBtn" aria-label="Notificaciones" title="Notificaciones">
-            <i class="fas fa-bell" aria-hidden="true"></i>
-            <span class="dot" id="notifDot">0</span>
+
+          <!-- Tema -->
+
+          <button
+            class="header-icon-btn"
+            id="themeBtn"
+            aria-label="Cambiar tema"
+            title="Cambiar modo claro u oscuro"
+          >
+
+            <i
+              class="fas fa-moon"
+              aria-hidden="true"
+            ></i>
+
           </button>
 
+
+          <!-- Ciclo / periodo -->
+
+          <div
+            id="periodSelector"
+            aria-label="Selector de ciclo y periodo"
+          ></div>
+
+
+          <!-- Notificaciones -->
+
+          <button
+            class="header-icon-btn"
+            id="notifBtn"
+            aria-label="Notificaciones"
+            title="Notificaciones"
+          >
+
+            <i
+              class="fas fa-bell"
+              aria-hidden="true"
+            ></i>
+
+            <span
+              class="dot"
+              id="notifDot"
+            >
+              0
+            </span>
+
+          </button>
+
+
+          <!-- ==============================================
+               USUARIO
+               ============================================== -->
+
           <div class="dropdown">
-            <button class="user-chip" id="userChip" aria-haspopup="true" aria-expanded="false" aria-label="Menú de usuario">
-              <span class="avatar" id="userAvatar" aria-hidden="true">--</span>
-              <span class="info">
-                <strong id="userName">Usuario</strong>
-                <small id="userRole">rol</small>
+
+            <button
+              class="user-chip"
+              id="userChip"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-label="Menú de usuario"
+            >
+
+              <span
+                class="avatar"
+                id="userAvatar"
+                aria-hidden="true"
+              >
+                --
               </span>
-              <i class="fas fa-chevron-down" aria-hidden="true"></i>
+
+
+              <span class="info">
+
+                <strong id="userName">
+                  Usuario
+                </strong>
+
+                <small id="userRole">
+                  rol
+                </small>
+
+              </span>
+
+
+              <i
+                class="fas fa-chevron-down"
+                aria-hidden="true"
+              ></i>
+
             </button>
-            <div class="dropdown-menu" id="userMenu" role="menu">
-              <button class="dropdown-item" id="miPerfil" role="menuitem">
-                <i class="fas fa-user" aria-hidden="true"></i> Mi perfil
+
+
+            <!-- Dropdown -->
+
+            <div
+              class="dropdown-menu"
+              id="userMenu"
+              role="menu"
+            >
+
+
+              <button
+                class="dropdown-item"
+                id="miPerfil"
+                role="menuitem"
+              >
+
+                <i
+                  class="fas fa-user"
+                  aria-hidden="true"
+                ></i>
+
+                Mi perfil
+
               </button>
-              <button class="dropdown-item" id="miConfig" role="menuitem">
-                <i class="fas fa-gear" aria-hidden="true"></i> Configuración
+
+
+              <button
+                class="dropdown-item"
+                id="miConfig"
+                role="menuitem"
+              >
+
+                <i
+                  class="fas fa-gear"
+                  aria-hidden="true"
+                ></i>
+
+                Configuración
+
               </button>
-              <div class="dropdown-divider" role="separator"></div>
-              <button class="dropdown-item danger" id="logoutBtn" role="menuitem">
-                <i class="fas fa-right-from-bracket" aria-hidden="true"></i> Cerrar sesión
+
+
+              <div
+                class="dropdown-divider"
+                role="separator"
+              ></div>
+
+
+              <button
+                class="dropdown-item danger"
+                id="logoutBtn"
+                role="menuitem"
+              >
+
+                <i
+                  class="fas fa-right-from-bracket"
+                  aria-hidden="true"
+                ></i>
+
+                Cerrar sesión
+
               </button>
+
             </div>
+
           </div>
+
         </div>
+
       </header>
 
-      <nav class="breadcrumbs" id="breadcrumbs" aria-label="Ruta de navegación"></nav>
 
-      <main class="app-main" id="view" role="main" tabindex="-1"></main>
+      <!-- ==================================================
+           BREADCRUMBS
+           ================================================== -->
 
-      <footer class="app-footer" role="contentinfo">
-        <div>© 2026 Colegio Papu · Sistema Escolar Integrado</div>
+      <nav
+        class="breadcrumbs"
+        id="breadcrumbs"
+        aria-label="Ruta de navegación"
+      ></nav>
+
+
+      <!-- ==================================================
+           CONTENIDO DINÁMICO
+           ================================================== -->
+
+      <main
+        class="app-main"
+        id="view"
+        role="main"
+        tabindex="-1"
+      ></main>
+
+
+      <!-- ==================================================
+           FOOTER
+           ================================================== -->
+
+      <footer
+        class="app-footer"
+        role="contentinfo"
+      >
+
+        <div id="footerBrand">© 2026 Sistema Escolar Integrado</div>
+
+
         <div class="footer-links">
-          <a id="footerPrivacy" tabindex="0" role="button">Aviso de privacidad</a>
-          <a id="footerHelp" tabindex="0" role="button">Ayuda</a>
-          <a id="footerContact" tabindex="0" role="button">Contacto</a>
-          <span>Versión 1.0.0</span>
+
+          <a
+            id="footerPrivacy"
+            tabindex="0"
+            role="button"
+          >
+            Aviso de privacidad
+          </a>
+
+
+          <a
+            id="footerHelp"
+            tabindex="0"
+            role="button"
+          >
+            Ayuda
+          </a>
+
+
+          <a
+            id="footerContact"
+            tabindex="0"
+            role="button"
+          >
+            Contacto
+          </a>
+
+
+          <span>
+            Versión 1.0.0
+          </span>
+
         </div>
+
       </footer>
+
     </div>
+
   </div>
 
-  <script type="module" src="js/app.js"></script>
+
+  <!-- ======================================================
+       APLICACIÓN JAVASCRIPT
+       ====================================================== -->
+
+  <script
+    type="module"
+    src="js/app.js"
+  ></script>
+
 </body>
+
 </html>

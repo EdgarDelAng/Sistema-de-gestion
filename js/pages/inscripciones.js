@@ -8,6 +8,7 @@ import { emptyState } from '../components/loading.js';
 import { Auth } from '../core/auth.js';
 import { Validators, Validacion } from '../components/form-validator.js';
 import { PeriodSelector } from '../components/period-selector.js';
+import { OperacionAlumnosService } from '../services/school-ops.service.js';
 
 const ESTADOS = ['Preinscrito', 'Inscrito', 'Baja', 'Finalizado'];
 
@@ -23,9 +24,7 @@ export async function renderInscripciones(container) {
         <p class="page-sub">Control de inscripciones · ${escapeHtml(sel.ciclo)} · ${escapeHtml(sel.periodo)}</p>
       </div>
       ${puedeEditar ? `
-        <button class="btn btn-primary" id="btnNuevo">
-          <i class="fas fa-plus"></i> Nueva inscripción
-        </button>` : ''}
+        <div class="page-actions"><button class="btn btn-secondary" id="btnProcesos"><i class="fas fa-arrow-right-arrow-left"></i> Procesos escolares</button><button class="btn btn-primary" id="btnNuevo"><i class="fas fa-plus"></i> Nueva inscripción</button></div>` : ''}
     </div>
 
     <div id="stats"></div>
@@ -667,6 +666,8 @@ export async function renderInscripciones(container) {
   container.querySelector('#filtroGrupo').addEventListener('change', (e) => { state.grupoId = e.target.value; cargar(); });
   container.querySelector('#filtroEstado').addEventListener('change', (e) => { state.estado = e.target.value; cargar(); });
 
+  container.querySelector('#btnProcesos')?.addEventListener('click', async () => abrirProcesosEscolares(cargar));
+
   const btnNuevo = container.querySelector('#btnNuevo');
   if (btnNuevo) {
     btnNuevo.addEventListener('click', async () => {
@@ -679,4 +680,12 @@ export async function renderInscripciones(container) {
   }
 
   await cargar();
+}
+
+async function abrirProcesosEscolares(onDone){
+ const [alumnos,grupos]=await Promise.all([AlumnosService.todos(),GruposService.todos()]);
+ const activos=alumnos.filter(a=>a.estado==='activo');
+ const {overlay,close}=UI.modal({title:'Procesos escolares',size:'lg',body:`<div class="process-tabs"><button class="active" data-process="grupo">Cambio de grupo</button><button data-process="promover">Promoción</button><button data-process="baja">Baja</button></div><div class="process-help"><strong>Operación administrativa</strong><span>Los cambios actualizan el expediente y quedan registrados en Auditoría.</span></div><div class="form-grid"><label class="field span-2"><span>Alumno</span><select class="select" id="opAlumno"><option value="">Selecciona un alumno</option>${activos.map(a=>`<option value="${a.id}">${escapeHtml(a.apellidos)}, ${escapeHtml(a.nombre)} · ${escapeHtml(a.matricula)}</option>`).join('')}</select></label><label class="field span-2" id="groupField"><span>Grupo destino</span><select class="select" id="opGrupo"><option value="">Selecciona grupo</option>${grupos.map(g=>`<option value="${g.id}">${escapeHtml(g.nombre)} · Aula ${escapeHtml(g.aula||'—')}</option>`).join('')}</select></label><label class="field span-2" id="reasonField"><span>Motivo / observaciones</span><textarea class="textarea" id="opMotivo" rows="3" placeholder="Describe brevemente el motivo del movimiento"></textarea></label></div>`,footer:`<button class="btn btn-secondary" data-action="close">Cancelar</button><button class="btn btn-primary" id="applyProcess">Aplicar proceso</button>`});
+ let tipo='grupo';overlay.querySelectorAll('[data-process]').forEach(b=>b.onclick=()=>{tipo=b.dataset.process;overlay.querySelectorAll('[data-process]').forEach(x=>x.classList.toggle('active',x===b));overlay.querySelector('#groupField').style.display=tipo==='baja'?'none':'';overlay.querySelector('#applyProcess').textContent=tipo==='baja'?'Registrar baja':tipo==='promover'?'Promover alumno':'Cambiar grupo'});
+ overlay.querySelector('#applyProcess').onclick=async e=>{const alumnoId=Number(overlay.querySelector('#opAlumno').value),grupoId=Number(overlay.querySelector('#opGrupo').value),motivo=overlay.querySelector('#opMotivo').value.trim();if(!alumnoId)return UI.toast('Selecciona un alumno','warning');if(tipo!=='baja'&&!grupoId)return UI.toast('Selecciona el grupo destino','warning');if(tipo==='baja'&&!motivo)return UI.toast('Indica el motivo de la baja','warning');UI.buttonLoading(e.currentTarget,true);if(tipo==='baja')await OperacionAlumnosService.baja(alumnoId,motivo);else if(tipo==='promover')await OperacionAlumnosService.promover(alumnoId,grupoId);else await OperacionAlumnosService.cambiarGrupo(alumnoId,grupoId,motivo||'Cambio administrativo');UI.toast('Proceso aplicado correctamente','success');close();onDone?.();};
 }

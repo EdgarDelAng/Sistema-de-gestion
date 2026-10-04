@@ -10,7 +10,7 @@ const ICONOS = {
 };
 
 export async function renderNotificaciones(container) {
-  const usuarioId = Auth.user.id || 1;
+  const usuario = Auth.user;
 
   container.innerHTML = `
     <div class="page-head">
@@ -31,7 +31,7 @@ export async function renderNotificaciones(container) {
   const cargar = async () => {
     const wrap = container.querySelector('#notifList');
     wrap.innerHTML = `<div class="skeleton-block" style="height:200px"></div>`;
-    const items = await NotificacionesService.porUsuario(usuarioId);
+    const items = await NotificacionesService.paraUsuario(usuario);
 
     if (!items.length) {
       wrap.innerHTML = `<div class="empty"><i class="fas fa-bell-slash"></i><h4>Sin notificaciones</h4><p>Aquí aparecerá tu actividad reciente.</p></div>`;
@@ -61,7 +61,7 @@ export async function renderNotificaciones(container) {
 
     wrap.querySelectorAll('[data-id]').forEach((el) => {
       el.addEventListener('click', async () => {
-        await NotificacionesService.marcarLeida(Number(el.dataset.id));
+        await NotificacionesService.marcarLeidaPara(Number(el.dataset.id), usuario);
         cargar();
         actualizarBadge();
       });
@@ -69,7 +69,7 @@ export async function renderNotificaciones(container) {
   };
 
   const actualizarBadge = async () => {
-    const count = await NotificacionesService.contarNoLeidas(usuarioId);
+    const count = await NotificacionesService.contarNoLeidasPara(usuario);
     const dot = document.getElementById('notifDot');
     if (dot) {
       dot.textContent = count;
@@ -78,7 +78,7 @@ export async function renderNotificaciones(container) {
   };
 
   container.querySelector('#btnMarcarTodas').addEventListener('click', async () => {
-    await NotificacionesService.marcarTodasLeidas(usuarioId);
+    await NotificacionesService.marcarTodasLeidasPara(usuario);
     UI.toast('Todas marcadas como leídas', 'success');
     cargar();
     actualizarBadge();

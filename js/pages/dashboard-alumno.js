@@ -1,5 +1,5 @@
 import { Auth } from '../core/auth.js';
-import { StatsService, HorariosService } from '../services/data.service.js';
+import { StatsService, HorariosService, AlumnosService, AsistenciaService, CalificacionesService, ConfigService } from '../services/data.service.js';
 import { escapeHtml } from '../core/ui.js';
 import { statusBadge } from '../components/status-badge.js';
 
@@ -7,21 +7,22 @@ export async function renderDashboardAlumno(container) {
   const u = Auth.user;
   const saludo = getSaludo();
   const stats = await StatsService.resumen();
-
-  // Demo: alumno 1
+  const cfg = ConfigService.actual();
   const alumnoId = u.alumnoId || 1;
-  const horarios = await HorariosService.porGrupo(1);
+  const alumno = await AlumnosService.obtener(alumnoId);
+  const horarios = await HorariosService.porGrupo(alumno.grupoId);
   const proxima = horarios[0];
-
-  // Datos simulados
-  const promedio = 9.1;
-  const asistenciaPct = 94;
+  const califs = await CalificacionesService.porAlumno(alumnoId);
+  const promedio = califs.length ? califs.reduce((a,x)=>a+(x.promedio||0),0)/califs.length : 0;
+  const asist = await AsistenciaService.historial({alumnoId});
+  const presentes = asist.filter(x=>['presente','retardo','justificada'].includes(x.estado)).length;
+  const asistenciaPct = asist.length ? Math.round(presentes/asist.length*100) : 0;
 
   container.innerHTML = `
     <div class="page-head">
       <div>
         <h1 class="page-title"><i class="fas fa-gauge-high"></i> ${saludo}, ${escapeHtml(u.nombre.split(' ')[0])}</h1>
-        <p class="page-sub">Portal del estudiante · Ciclo 2026-2027</p>
+        <p class="page-sub">Portal del estudiante · Ciclo ${escapeHtml(cfg.cicloEscolar || '—')}</p>
       </div>
     </div>
 
@@ -50,8 +51,8 @@ export async function renderDashboardAlumno(container) {
         <div style="display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3);background:var(--c-success-bg);border-radius:var(--r-md);border-left:4px solid var(--c-success)">
           <i class="fas fa-circle-check" style="color:var(--c-success);font-size:1.5rem"></i>
           <div>
-            <div style="font-weight:700;color:var(--c-success-fg)">Regular</div>
-            <div style="font-size:var(--fs-xs);color:var(--text-secondary)">Sin adeudos ni materias reprobadas</div>
+            <div style="font-weight:700;color:var(--c-success-fg)">${promedio >= (cfg.escalaMinima||6) ? 'Regular' : 'Requiere seguimiento'}</div>
+            <div style="font-size:var(--fs-xs);color:var(--text-secondary)">${promedio ? `Promedio acumulado ${promedio.toFixed(1)} · ${califs.filter(x=>x.estado==='Reprobado').length} materias reprobadas` : 'Aún no hay calificaciones capturadas'}</div>
           </div>
         </div>
       </div>

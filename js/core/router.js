@@ -124,6 +124,8 @@ export const Router = {
   renderError(code, data = {}) {
     const handler = this.errorRoutes[code];
     const container = document.getElementById('view');
+    const titleEl = document.getElementById('headerTitle');
+    if (titleEl) titleEl.textContent = code === 403 ? 'Acceso restringido' : 'Página no encontrada';
     if (handler && container) {
       container.innerHTML = '';
       handler(container, data);

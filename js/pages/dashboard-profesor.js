@@ -1,5 +1,5 @@
 import { Auth } from '../core/auth.js';
-import { StatsService, HorariosService, CatalogosService } from '../services/data.service.js';
+import { HorariosService, CatalogosService, _db, ConfigService } from '../services/data.service.js';
 import { escapeHtml } from '../core/ui.js';
 
 export async function renderDashboardProfesor(container) {
@@ -8,14 +8,15 @@ export async function renderDashboardProfesor(container) {
   const grupos = await CatalogosService.grupos();
   const alumnos = await CatalogosService.alumnos();
   const materias = await CatalogosService.materias();
-
-  // Simular: el profesor 1 imparte 3 materias
+  const cfg = ConfigService.actual();
+  const db = _db();
   const profesorId = u.profesorId || 1;
-  const misMaterias = materias.filter((m) => m.profesorId === profesorId);
-  const misGrupos = grupos.slice(0, 4); // demo
-  const misAlumnos = alumnos.filter((a) => misGrupos.some((g) => g.id === a.grupoId));
-
-  // Próxima clase (demo)
+  const asignaciones = (db.materiaGrupo || []).filter(x => x.profesorId === profesorId);
+  const grupoIds = [...new Set(asignaciones.map(x => x.grupoId))];
+  const materiaIds = [...new Set(asignaciones.map(x => x.materiaId))];
+  const misMaterias = materias.filter(m => materiaIds.includes(m.id));
+  const misGrupos = grupos.filter(g => grupoIds.includes(g.id));
+  const misAlumnos = alumnos.filter(a => grupoIds.includes(a.grupoId) && a.estado === 'activo');
   const horarios = await HorariosService.porProfesor(profesorId);
   const proxima = horarios[0];
 
@@ -23,7 +24,7 @@ export async function renderDashboardProfesor(container) {
     <div class="page-head">
       <div>
         <h1 class="page-title"><i class="fas fa-gauge-high"></i> ${saludo}, ${escapeHtml(u.nombre.split(' ')[0])}</h1>
-        <p class="page-sub">Panel docente · Ciclo 2026-2027</p>
+        <p class="page-sub">Panel docente · Ciclo ${escapeHtml(cfg.cicloEscolar || '—')}</p>
       </div>
     </div>
 
@@ -49,7 +50,7 @@ export async function renderDashboardProfesor(container) {
           <i class="fas fa-pen-to-square" style="color:var(--c-warning);font-size:1.1rem"></i>
           <div style="flex:1">
             <div class="list-item-title">Capturar calificaciones del primer parcial</div>
-            <div class="list-item-desc">Tienes 3 grupos pendientes de captura</div>
+            <div class="list-item-desc">Tienes ${misGrupos.length} grupos asignados para seguimiento</div>
           </div>
           <button class="btn btn-sm btn-primary" onclick="location.hash='#/calificaciones'">Ir</button>
         </div>
@@ -57,7 +58,7 @@ export async function renderDashboardProfesor(container) {
           <i class="fas fa-clipboard-check" style="color:var(--c-brand-500);font-size:1.1rem"></i>
           <div style="flex:1">
             <div class="list-item-title">Pase de lista pendiente</div>
-            <div class="list-item-desc">Grupo 6°A · Matemáticas</div>
+            <div class="list-item-desc">${misGrupos[0] ? escapeHtml(misGrupos[0].nombre) : 'Sin grupo'} · ${misMaterias[0] ? escapeHtml(misMaterias[0].nombre) : 'Sin materia'}</div>
           </div>
           <button class="btn btn-sm btn-primary" onclick="location.hash='#/asistencia'">Ir</button>
         </div>

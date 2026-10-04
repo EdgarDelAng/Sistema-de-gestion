@@ -1,129 +1,54 @@
 :root {
-  /* ===== MARCA (azul + turquesa) ===== */
-  --c-brand-900: #0a2540;
-  --c-brand-800: #103a5c;
-  --c-brand-700: #17486e;
-  --c-brand-600: #1d5a8a;
-  --c-brand-500: #2563eb;   /* Azul principal */
-  --c-brand-400: #3b82f6;
-  --c-brand-300: #93c5fd;
-  --c-brand-200: #bfdbfe;
-  --c-brand-100: #dbeafe;
+  /* Sistema visual: neutral + teal institucional */
+  --c-brand-900:#18181b; --c-brand-800:#27272a; --c-brand-700:#115e59;
+  --c-brand-600:#0f766e; --c-brand-500:#0f766e; --c-brand-400:#14b8a6;
+  --c-brand-300:#5eead4; --c-brand-200:#99f6e4; --c-brand-100:#ccfbf1;
+  --c-accent-700:#115e59; --c-accent-600:#0f766e; --c-accent-500:#14b8a6;
+  --c-accent-400:#2dd4bf; --c-accent-300:#5eead4; --c-accent-200:#99f6e4; --c-accent-100:#ccfbf1;
 
-  /* ===== ACENTO (turquesa) ===== */
-  --c-accent-700: #0f766e;
-  --c-accent-600: #0d9488;
-  --c-accent-500: #14b8a6;   /* Turquesa principal */
-  --c-accent-400: #2dd4bf;
-  --c-accent-300: #5eead4;
-  --c-accent-200: #99f6e4;
-  --c-accent-100: #ccfbf1;
+  --c-success:#15803d; --c-success-hover:#166534; --c-success-bg:#dcfce7; --c-success-fg:#166534;
+  --c-danger:#dc2626; --c-danger-hover:#b91c1c; --c-danger-bg:#fee2e2; --c-danger-fg:#991b1b;
+  --c-warning:#d97706; --c-warning-hover:#b45309; --c-warning-bg:#fef3c7; --c-warning-fg:#92400e;
+  --c-info:#0369a1; --c-info-bg:#e0f2fe; --c-info-fg:#075985;
 
-  /* ===== SEMÁNTICOS ===== */
-  --c-success: #10b981;  --c-success-hover: #059669;
-  --c-success-bg: #d1fae5; --c-success-fg: #065f46;
-  --c-danger: #dc2626;   --c-danger-hover: #b91c1c;
-  --c-danger-bg: #fee2e2;  --c-danger-fg: #7f1d1d;
-  --c-warning: #d97706;  --c-warning-hover: #b45309;
-  --c-warning-bg: #fef3c7; --c-warning-fg: #78350f;
-  --c-info: #0ea5e9;     --c-info-bg: #e0f2fe; --c-info-fg: #075985;
+  --bg-app:#f7f8fa; --bg-surface:#ffffff; --bg-muted:#f4f4f5; --bg-hover:#f0f1f2; --bg-elevated:#ffffff;
+  --bg-sidebar:#ffffff; --bg-sidebar-hover:#f4f4f5; --bg-sidebar-active:#f0fdfa;
+  --border:#e4e4e7; --border-strong:#d4d4d8;
+  --text-primary:#18181b; --text-secondary:#52525b; --text-muted:#a1a1aa; --text-inverse:#ffffff;
+  --text-sidebar:#52525b; --text-sidebar-active:#0f766e;
 
-  /* ===== SUPERFICIES ===== */
-  --bg-app: #f1f5f9;
-  --bg-surface: #ffffff;
-  --bg-muted: #f8fafc;
-  --bg-hover: #f1f5f9;
-  --bg-elevated: #ffffff;
-  --bg-sidebar: #0a2540;
-  --bg-sidebar-hover: rgba(20,184,166,.12);
-  --bg-sidebar-active: linear-gradient(90deg, #2563eb, #14b8a6);
+  --r-xs:4px; --r-sm:6px; --r-md:8px; --r-lg:10px; --r-xl:14px; --r-full:9999px;
+  --sh-xs:0 1px 2px rgba(24,24,27,.04); --sh-sm:0 2px 8px rgba(24,24,27,.05);
+  --sh-md:0 8px 24px rgba(24,24,27,.07); --sh-lg:0 16px 40px rgba(24,24,27,.10); --sh-xl:0 24px 64px rgba(24,24,27,.14);
+  --sh-focus:0 0 0 3px rgba(15,118,110,.16);
 
-  /* ===== BORDES ===== */
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px; --sp-8:48px;
+  --ff:'Inter',system-ui,-apple-system,sans-serif;
+  --fs-xs:.72rem; --fs-sm:.8rem; --fs-base:.875rem; --fs-md:.95rem; --fs-lg:1.1rem; --fs-xl:1.35rem; --fs-2xl:1.7rem; --fs-3xl:2.2rem;
+  --t-fast:.15s ease; --t-base:.22s ease;
+  --header-h:64px; --breadcrumb-h:40px; --sidebar-w:255px;
 
-  /* ===== TEXTO ===== */
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
-  --text-inverse: #ffffff;
-  --text-sidebar: #b8cbdc;
-  --text-sidebar-active: #ffffff;
-
-  /* ===== RADIOS ===== */
-  --r-xs: 4px; --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px; --r-full: 9999px;
-
-  /* ===== SOMBRAS ===== */
-  --sh-xs: 0 1px 2px rgba(10,37,64,.06);
-  --sh-sm: 0 2px 4px rgba(10,37,64,.08);
-  --sh-md: 0 4px 12px rgba(10,37,64,.10);
-  --sh-lg: 0 12px 28px rgba(10,37,64,.14);
-  --sh-xl: 0 24px 56px rgba(10,37,64,.20);
-  --sh-focus: 0 0 0 3px rgba(37,99,235,.18);
-
-  /* ===== ESPACIADO ===== */
-  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px;
-  --sp-4: 16px; --sp-5: 24px; --sp-6: 32px; --sp-8: 48px;
-
-  /* ===== TIPOGRAFÍA ===== */
-  --ff: 'Inter', system-ui, -apple-system, sans-serif;
-  --fs-xs: .72rem; --fs-sm: .8rem; --fs-base: .875rem;
-  --fs-md: .95rem; --fs-lg: 1.1rem; --fs-xl: 1.35rem;
-  --fs-2xl: 1.7rem; --fs-3xl: 2.2rem;
-
-  /* ===== TRANSICIONES ===== */
-  --t-fast: .15s ease;
-  --t-base: .25s cubic-bezier(.2,.8,.2,1);
-
-  /* ===== LAYOUT ===== */
-  --header-h: 56px;
-  --breadcrumb-h: 40px;
-  --sidebar-w: 248px;
+  /* aliases usados por system-redesign y páginas existentes */
+  --primary:var(--c-brand-500); --primary-hover:var(--c-brand-600); --primary-soft:#f0fdfa; --primary-light:#ccfbf1;
+  --blue:var(--c-brand-500); --blue-hover:var(--c-brand-600);
+  --bg:var(--bg-app); --surface:var(--bg-surface); --surface-soft:var(--bg-muted);
+  --text:var(--text-primary); --text-soft:var(--text-secondary);
+  --success:var(--c-success); --warning:var(--c-warning); --danger:var(--c-danger);
+  --sidebar-width:var(--sidebar-w); --sidebar-collapsed:76px; --header-height:var(--header-h); --shadow:var(--sh-sm);
 }
 
-/* ============================================================
-   MODO OSCURO
-   ============================================================ */
 [data-theme="dark"] {
-  --bg-app: #0a1628;
-  --bg-surface: #111f36;
-  --bg-muted: #16263f;
-  --bg-hover: #1e3150;
-  --bg-elevated: #1a2c47;
-  --bg-sidebar: #060f1c;
-  --bg-sidebar-hover: rgba(20,184,166,.15);
-
-  --border: #1e3150;
-  --border-strong: #2d4670;
-
-  --text-primary: #e6edf7;
-  --text-secondary: #94a8c2;
-  --text-muted: #617594;
-  --text-inverse: #0a1628;
-  --text-sidebar: #8ba4c2;
-
-  --c-brand-900: #dbeafe;
-  --c-brand-800: #bfdbfe;
-  --c-brand-100: #1e3150;
-  --c-brand-200: #2d4670;
-
-  --c-success-bg: #064e3b;
-  --c-success-fg: #6ee7b7;
-  --c-danger-bg: #7f1d1d;
-  --c-danger-fg: #fecaca;
-  --c-warning-bg: #78350f;
-  --c-warning-fg: #fde68a;
-  --c-info-bg: #075985;
-  --c-info-fg: #bae6fd;
-
-  --sh-xs: 0 1px 2px rgba(0,0,0,.4);
-  --sh-sm: 0 2px 4px rgba(0,0,0,.5);
-  --sh-md: 0 4px 12px rgba(0,0,0,.55);
-  --sh-lg: 0 12px 28px rgba(0,0,0,.6);
-  --sh-xl: 0 24px 56px rgba(0,0,0,.7);
+  --bg-app:#111315; --bg-surface:#181a1d; --bg-muted:#202327; --bg-hover:#262a2e; --bg-elevated:#202327;
+  --bg-sidebar:#151719; --bg-sidebar-hover:#202427; --bg-sidebar-active:#15312e;
+  --border:#2b2f33; --border-strong:#3a3f44;
+  --text-primary:#f4f4f5; --text-secondary:#a1a1aa; --text-muted:#71717a; --text-inverse:#ffffff;
+  --text-sidebar:#a1a1aa; --text-sidebar-active:#5eead4;
+  --c-brand-900:#f4f4f5; --c-brand-800:#e4e4e7; --c-brand-700:#5eead4; --c-brand-600:#2dd4bf; --c-brand-500:#2dd4bf;
+  --c-brand-100:#15312e; --c-brand-200:#1b4540;
+  --c-success-bg:#15351f; --c-success-fg:#86efac; --c-danger-bg:#3f1d1d; --c-danger-fg:#fca5a5;
+  --c-warning-bg:#3b2a12; --c-warning-fg:#fcd34d; --c-info-bg:#102f40; --c-info-fg:#7dd3fc;
+  --primary-soft:#15312e; --primary-light:#1b4540;
+  --sh-xs:0 1px 2px rgba(0,0,0,.2); --sh-sm:0 2px 10px rgba(0,0,0,.22); --sh-md:0 10px 28px rgba(0,0,0,.28);
+  --sh-lg:0 18px 44px rgba(0,0,0,.34); --sh-xl:0 28px 70px rgba(0,0,0,.42);
 }
-
-[data-theme="dark"] body,
-[data-theme="dark"] input,
-[data-theme="dark"] select,
-[data-theme="dark"] textarea { color-scheme: dark; }
+[data-theme="dark"] body,[data-theme="dark"] input,[data-theme="dark"] select,[data-theme="dark"] textarea{color-scheme:dark}

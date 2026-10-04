@@ -68,6 +68,17 @@ const PASSWORD_PROFESOR = 'profesor123';
 // ============================================================
 // Normaliza texto (sin acentos, sin espacios, minúsculas)
 // ============================================================
+
+function applyProfileOverride(user) {
+  try {
+    const key = `colegio_profile_${user.rol}_${user.usuario}`;
+    const saved = JSON.parse(localStorage.getItem(key) || 'null');
+    return saved ? { ...user, ...saved } : user;
+  } catch {
+    return user;
+  }
+}
+
 function norm(str) {
   return String(str || '')
     .toLowerCase()
@@ -102,7 +113,7 @@ export const AuthService = {
       p === ADMIN.password
     ) {
       console.log('✅ LOGIN: ADMIN');
-      return { user: { ...ADMIN.user, token: 'mock-' + Date.now() } };
+      return { user: applyProfileOverride({ ...ADMIN.user, token: 'mock-' + Date.now() }) };
     }
 
     // ═══════════════════════════════════════════════════════
@@ -113,7 +124,7 @@ export const AuthService = {
       p === ALUMNO.password
     ) {
       console.log('✅ LOGIN: ALUMNO');
-      return { user: { ...ALUMNO.user, token: 'mock-' + Date.now() } };
+      return { user: applyProfileOverride({ ...ALUMNO.user, token: 'mock-' + Date.now() }) };
     }
 
     // ═══════════════════════════════════════════════════════
@@ -126,7 +137,7 @@ export const AuthService = {
       if (u === 'profesor') {
         const prof = PROFESORES[0];
         console.log('✅ LOGIN: PROFESOR (atajo universal) →', prof.nombre, prof.apellidos);
-        return { user: this._construirUserProfesor(prof) };
+        return { user: applyProfileOverride(this._construirUserProfesor(prof)) };
       }
 
       const prof = PROFESORES.find((pr) => {
@@ -149,7 +160,7 @@ export const AuthService = {
 
       if (prof) {
         console.log('✅ LOGIN: PROFESOR →', prof.nombre, prof.apellidos, '| Matrícula:', 10000 + prof.id);
-        return { user: this._construirUserProfesor(prof) };
+        return { user: applyProfileOverride(this._construirUserProfesor(prof)) };
       }
 
       // Debug: mostrar opciones
