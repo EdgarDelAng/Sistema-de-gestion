@@ -1,4 +1,5 @@
 import { UI, escapeHtml } from '../core/ui.js';
+import { _save } from '../services/data.service.js';
 import {
   MateriasService, ProfesoresService, GruposService,
   AlumnosService, CalificacionesService
@@ -746,7 +747,7 @@ export async function renderMaterias(container) {
             db.materiaGrupo.push({ materiaId: Number(id), grupoId: gid, profesorId });
           });
           // Guardar
-          localStorage.setItem('colegio_db_v5', JSON.stringify(db));
+          await _save({ type: 'update', entity: 'materias' });
         } else {
           // Crear materia
           const newId = (db.nextId.materia || 1);
@@ -755,7 +756,7 @@ export async function renderMaterias(container) {
           gruposSel.forEach((gid) => {
             db.materiaGrupo.push({ materiaId: newId, grupoId: gid, profesorId });
           });
-          localStorage.setItem('colegio_db_v5', JSON.stringify(db));
+          await _save({ type: 'update', entity: 'materias' });
         }
         UI.toast(esEdicion ? 'Materia actualizada' : 'Materia creada', 'success');
         close();
@@ -786,7 +787,7 @@ export async function renderMaterias(container) {
       db.asistencias = (db.asistencias || []).filter((a) => a.materiaId !== Number(id));
       db.horarios = (db.horarios || []).filter((h) => h.materiaId !== Number(id));
       db.materias = (db.materias || []).filter((m) => m.id !== Number(id));
-      localStorage.setItem('colegio_db_v5', JSON.stringify(db));
+      await _save({ type: 'update', entity: 'materias' });
       UI.toast('Materia eliminada', 'success');
       cargar();
     } catch (e) { UI.toast(e.message, 'error'); }

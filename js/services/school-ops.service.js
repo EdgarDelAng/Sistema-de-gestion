@@ -1,4 +1,4 @@
-import { _db, AlumnosService, GruposService, InscripcionesService, DocumentosService, NotificacionesService, ConfigService } from './data.service.js';
+import { _db, AlumnosService, GruposService, InscripcionesService, DocumentosService, NotificacionesService, ConfigService, _save } from './data.service.js';
 import { AuditService } from './audit.service.js';
 
 const KEY = 'colegio_ops_v2';
@@ -23,20 +23,32 @@ const defaults = {
   comunicacion: { firma:'Dirección Escolar', permitirProgramacion:true, confirmarLectura:true },
   onboarding: { completado:false }
 };
-function load(){ try { return { ...structuredClone(defaults), ...(JSON.parse(localStorage.getItem(KEY)||'{}')) }; } catch { return structuredClone(defaults); } }
-function save(v){ localStorage.setItem(KEY, JSON.stringify(v)); }
+function load(){
+  try {
+    const remote = _db().schoolOps;
+    if (remote && typeof remote === 'object') return { ...structuredClone(defaults), ...structuredClone(remote) };
+    return { ...structuredClone(defaults), ...(JSON.parse(localStorage.getItem(KEY)||'{}')) };
+  } catch { return structuredClone(defaults); }
+}
+async function save(v){
+  state = v;
+  _db().schoolOps = structuredClone(v);
+  try { localStorage.setItem(KEY, JSON.stringify(v)); } catch {}
+  await _save({ type: 'update', entity: 'operacion_escolar' });
+}
 let state=load();
+export function hydrateSchoolOpsFromSupabase(){ state = load(); return structuredClone(state); }
 const today=()=>new Date().toISOString().slice(0,10);
 
 export const CiclosService = {
   async listar(){ return structuredClone(state.ciclos); },
   async activo(){ return structuredClone(state.ciclos.find(c=>c.estado==='activo')||state.ciclos[0]); },
-  async guardar(ciclo){ const i=state.ciclos.findIndex(c=>c.id===ciclo.id); if(i>=0) state.ciclos[i]={...state.ciclos[i],...ciclo}; else state.ciclos.unshift(ciclo); save(state); AuditService.log('actualizó','ciclo escolar',ciclo.nombre); return ciclo; },
+  async guardar(ciclo){ const i=state.ciclos.findIndex(c=>c.id===ciclo.id); if(i>=0) state.ciclos[i]={...state.ciclos[i],...ciclo}; else state.ciclos.unshift(ciclo); await save(state); AuditService.log('actualizó','ciclo escolar',ciclo.nombre); return ciclo; },
   async setActivo(id){
     const existe = state.ciclos.some(c => c.id === id);
     if (!existe) throw new Error('Ciclo escolar no encontrado');
     state.ciclos = state.ciclos.map(c => ({...c, estado:c.id===id?'activo':(c.estado==='activo'?'cerrado':c.estado)}));
-    save(state);
+    await save(state);
     await ConfigService.guardar({ cicloEscolar:id });
     try { window.dispatchEvent(new CustomEvent('school:cycles-changed', { detail:{ ciclo:id } })); } catch {}
     AuditService.log('activó','ciclo escolar',id);
@@ -45,9 +57,9 @@ export const CiclosService = {
 
 export const RolesService = {
   async listar(){ return structuredClone(state.roles); },
-  async guardar(id,data){ state.roles[id]={...state.roles[id],...data}; save(state); AuditService.log('actualizó','rol',id); return state.roles[id]; },
+  async guardar(id,data){ state.roles[id]={...state.roles[id],...data}; await save(state); AuditService.log('actualizó','rol',id); return state.roles[id]; },
   async seguridad(){ return {...state.seguridad}; },
-  async guardarSeguridad(data){ state.seguridad={...state.seguridad,...data}; save(state); AuditService.log('actualizó','seguridad','Políticas de acceso'); }
+  async guardarSeguridad(data){ state.seguridad={...state.seguridad,...data}; await save(state); AuditService.log('actualizó','seguridad','Políticas de acceso'); }
 };
 
 export const TareasService = {
@@ -92,7 +104,7 @@ export const DocumentosOficialesService = {
 
 export const ComunicacionService = {
   async programacion(){ return {...state.comunicacion}; },
-  async guardar(data){ state.comunicacion={...state.comunicacion,...data}; save(state); },
+  async guardar(data){ state.comunicacion={...state.comunicacion,...data}; await save(state); },
   async notificarUsuarios(titulo,desc,roles=['admin','profesor','alumno']){
     const cleanRoles = [...new Set((roles || []).filter(Boolean))];
     const todos = ['admin','profesor','alumno'].every(r => cleanRoles.includes(r));

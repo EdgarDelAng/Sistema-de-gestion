@@ -7,13 +7,32 @@ import { Auth, ROLES } from './core/auth.js';
 import { Router } from './core/router.js';
 import { UI, escapeHtml } from './core/ui.js';
 import { AuthService } from './services/auth.service.js';
-import { NotificacionesService, ConfigService } from './services/data.service.js';
-import { RolesService } from './services/school-ops.service.js';
+import { NotificacionesService, ConfigService, inicializarDatosSupabase } from './services/data.service.js';
+import { RolesService, hydrateSchoolOpsFromSupabase } from './services/school-ops.service.js';
 import { renderSidebar } from './components/sidebar.js';
 import { PeriodSelector } from './components/period-selector.js';
 import { ModeToggle } from './components/mode-toggle.js';
 import { render403 } from './pages/403.js';
 import { render404 } from './pages/404.js';
+
+// Cargar datos remotos antes de iniciar sesión y renderizar módulos.
+try {
+  await inicializarDatosSupabase();
+  hydrateSchoolOpsFromSupabase();
+} catch (error) {
+  console.error('No se pudo inicializar Supabase:', error);
+  document.body.innerHTML = `<main style="max-width:760px;margin:48px auto;padding:24px;font-family:system-ui">
+    <h1>No se pudo conectar con Supabase</h1>
+    <p>${String(error.message || error).replace(/[<>&]/g, '')}</p>
+    <p>Verifica que ejecutaste el SQL actualizado y que la URL y clave sean correctas.</p>
+  </main>`;
+  throw error;
+}
+
+window.addEventListener('school:supabase-error', event => {
+  console.error('Error guardando en Supabase:', event.detail?.message);
+  UI.toast(`No se guardaron los cambios: ${event.detail?.message || 'Error de Supabase'}`, 'error', 6000);
+});
 
 // ------------------------------------------------------------
 // 1. Aplicar tema ANTES de cualquier render

@@ -1,6 +1,7 @@
 import { UI } from '../core/ui.js';
 import { Auth } from '../core/auth.js';
 import { AuthService } from '../services/auth.service.js';
+import { inicializarDatosSupabase } from '../services/data.service.js';
 
 function getInstitutionConfig() {
   try {
@@ -25,7 +26,23 @@ function applyInstitutionLoginBranding() {
 }
 applyInstitutionLoginBranding();
 
-if (Auth.init()) {
+let supabaseReady = false;
+try {
+  await inicializarDatosSupabase();
+  supabaseReady = true;
+} catch (error) {
+  console.error('Error inicializando Supabase:', error);
+  const msg = document.getElementById('loginMsgText');
+  const box = document.getElementById('loginMsg');
+  if (msg && box) {
+    msg.textContent = `No se pudo conectar con la base de datos: ${error.message}`;
+    box.classList.add('show');
+  }
+}
+
+if (!supabaseReady) {
+  initLoginPage();
+} else if (Auth.init()) {
   location.replace('app.html');
 } else {
   initLoginPage();

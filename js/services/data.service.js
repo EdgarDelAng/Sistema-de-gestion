@@ -1,4 +1,5 @@
 import { delay } from '../core/api.js';
+import { SupabaseDB } from '../core/supabase.js';
 import { AuditService } from './audit.service.js';
 
 const KEY = 'colegio_db_v6';
@@ -394,42 +395,106 @@ function generarSeed() {
 
 // ============================================================
 // CARGA Y PERSISTENCIA
+// Supabase es la fuente remota; localStorage conserva una caché de respaldo.
 // ============================================================
 let DB = (() => {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (!parsed.alumnos || parsed.alumnos.length < 100 || !parsed.profesores || parsed.profesores.length < 15) {
-        console.warn('Base vieja detectada, regenerando…');
-        const fresh = generarSeed();
-        localStorage.setItem(KEY, JSON.stringify(fresh));
-        return fresh;
-      }
-      return parsed;
+      if (parsed && Array.isArray(parsed.alumnos) && Array.isArray(parsed.profesores)) return parsed;
     }
-  } catch (e) { console.warn('Error loading DB, usando seed:', e); }
+  } catch (error) {
+    console.warn('No se pudo leer la caché local:', error);
+  }
   const fresh = generarSeed();
   try { localStorage.setItem(KEY, JSON.stringify(fresh)); } catch {}
   return fresh;
 })();
 
-// La identidad institucional es global: no depende del usuario o rol activo.
-// Migramos una configuración existente la primera vez y después la usamos como fuente canónica.
 const existingInstitution = (() => {
   try { return JSON.parse(localStorage.getItem(INSTITUTION_KEY) || 'null'); } catch { return null; }
 })();
 if (!existingInstitution) writeInstitution(DB.config || {});
 DB.config = readInstitution(DB.config || {});
-try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch {}
 
-function emitDataChange(detail = {}) { try { window.dispatchEvent(new CustomEvent('school:data-changed', { detail })); } catch {} }
+let remoteReady = false;
+let initializationPromise = null;
+let saveQueue = Promise.resolve();
+
+export async function inicializarDatosSupabase() {
+  if (remoteReady) return DB;
+  if (initializationPromise) return initializationPromise;
+
+  initializationPromise = (async () => {
+    // 1. Leer lo que ya existe en Supabase.
+    const rows = await SupabaseDB.cargar();
+
+    if (Array.isArray(rows) && rows.length > 0) {
+      const remoteState = {};
+      for (const row of rows) remoteState[row.collection] = row.payload;
+
+      // Si la nube ya tiene datos, se consideran la fuente principal.
+      if (!Array.isArray(remoteState.alumnos) || !Array.isArray(remoteState.profesores)) {
+        throw new Error('La tabla school_state contiene datos incompletos. No se sobrescribieron.');
+      }
+      DB = { ...DB, ...remoteState };
+      DB.config = readInstitution(DB.config || {});
+      try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch {}
+    } else {
+      // 2. Primera ejecución: inicializar Supabase con los datos de demostración.
+      await SupabaseDB.guardar(DB);
+      // 3. Confirmar que la escritura sí llegó a la tabla.
+      const verification = await SupabaseDB.cargar();
+      if (!Array.isArray(verification) || verification.length === 0) {
+        throw new Error('Supabase aceptó la solicitud, pero no devolvió colecciones al verificar school_state.');
+      }
+    }
+
+    remoteReady = true;
+    return DB;
+  })();
+
+  try {
+    return await initializationPromise;
+  } catch (error) {
+    initializationPromise = null;
+    remoteReady = false;
+    throw error;
+  }
+}
+
+function emitDataChange(detail = {}) {
+  try { window.dispatchEvent(new CustomEvent('school:data-changed', { detail })); } catch {}
+}
+
 function save(detail = {}) {
   if (DB.config) DB.config = readInstitution(DB.config);
-  try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) { console.warn('Save error:', e); }
+  try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (error) { console.warn('Error guardando caché local:', error); }
   emitDataChange(detail);
+
+  if (!remoteReady) {
+    console.warn('Los cambios se conservaron localmente; Supabase aún no terminó de inicializarse.');
+    return Promise.resolve();
+  }
+
+  const snapshot = JSON.parse(JSON.stringify(DB));
+  saveQueue = saveQueue.catch(() => {}).then(() => SupabaseDB.guardar(snapshot));
+  return saveQueue.catch(error => {
+    console.error('Error sincronizando con Supabase:', error);
+    try {
+      window.dispatchEvent(new CustomEvent('school:supabase-error', { detail: { message: error.message } }));
+    } catch {}
+    throw error;
+  });
 }
-function reset() { const institution = readInstitution(DB.config || {}); DB = generarSeed(); DB.config = { ...DB.config, ...institution }; save(); }
+
+function reset() {
+  const institution = readInstitution(DB.config || {});
+  DB = generarSeed();
+  DB.config = { ...DB.config, ...institution };
+  save({ type: 'reset', entity: 'sistema' });
+}
 
 const byId = (arr, id) => (arr || []).find((x) => x.id === Number(id));
 
@@ -485,7 +550,7 @@ function makeCrud(tabla, idKey) {
       const nuevo = { id: nextIdFor(idKey), ...data };
       if (!DB[tabla]) DB[tabla] = [];
       DB[tabla].push(nuevo);
-      save({ type: 'create', entity: tabla, id: nuevo.id });
+      await save({ type: 'create', entity: tabla, id: nuevo.id });
       AuditService.log('creó', tabla, data.nombre || data.titulo || `#${nuevo.id}`);
       return { ...nuevo };
     },
@@ -494,14 +559,14 @@ function makeCrud(tabla, idKey) {
       const idx = (DB[tabla] || []).findIndex((x) => x.id === Number(id));
       if (idx === -1) throw new Error('Registro no encontrado');
       DB[tabla][idx] = { ...DB[tabla][idx], ...data };
-      save({ type: 'update', entity: tabla, id: Number(id) });
+      await save({ type: 'update', entity: tabla, id: Number(id) });
       AuditService.log('actualizó', tabla, data.nombre || data.titulo || `#${id}`);
       return { ...DB[tabla][idx] };
     },
     async eliminar(id) {
       await delay(120);
       DB[tabla] = (DB[tabla] || []).filter((x) => x.id !== Number(id));
-      save({ type: 'delete', entity: tabla, id: Number(id) });
+      await save({ type: 'delete', entity: tabla, id: Number(id) });
       AuditService.log('eliminó', tabla, `#${id}`);
       return { ok: true };
     }
@@ -540,7 +605,7 @@ export const AlumnosService = {
     const matricula = 'A2026-' + String(id).padStart(4, '0');
     const nuevo = { id, matricula, estado: 'activo', turno: 'matutino', ...data };
     DB.alumnos.push(nuevo);
-    save({ type: 'create', entity: 'alumnos', id });
+    await save({ type: 'create', entity: 'alumnos', id });
     AuditService.log('creó','alumno',`${nuevo.nombre||''} ${nuevo.apellidos||''}`.trim());
     return { ...nuevo };
   },
@@ -549,7 +614,7 @@ export const AlumnosService = {
     const idx = DB.alumnos.findIndex((a) => a.id === Number(id));
     if (idx === -1) throw new Error('Alumno no encontrado');
     DB.alumnos[idx] = { ...DB.alumnos[idx], ...data };
-    save({ type: 'update', entity: 'alumnos', id: Number(id) });
+    await save({ type: 'update', entity: 'alumnos', id: Number(id) });
     AuditService.log('actualizó','alumno',`${DB.alumnos[idx].nombre||''} ${DB.alumnos[idx].apellidos||''}`.trim());
     return { ...DB.alumnos[idx] };
   },
@@ -559,7 +624,7 @@ export const AlumnosService = {
     DB.asistencias = (DB.asistencias || []).filter((a) => a.alumnoId !== Number(id));
     DB.inscripciones = (DB.inscripciones || []).filter((i) => i.alumnoId !== Number(id));
     DB.alumnos = DB.alumnos.filter((a) => a.id !== Number(id));
-    save({ type: 'delete', entity: 'alumnos', id: Number(id) });
+    await save({ type: 'delete', entity: 'alumnos', id: Number(id) });
     AuditService.log('eliminó','alumno',`#${id}`);
     return { ok: true };
   }
@@ -596,14 +661,14 @@ export const ProfesoresService = {
     DB.asistenciasProfesores=(DB.asistenciasProfesores||[]).filter(x=>x.profesorId!==id);
     (DB.grupos||[]).forEach(g=>{if(g.tutorId===id)g.tutorId=null});
     DB.profesores=(DB.profesores||[]).filter(x=>x.id!==id);
-    save({type:'delete',entity:'profesores',id}); AuditService.log('eliminó','profesor',p?`${p.nombre} ${p.apellidos}`:`#${id}`); return {ok:true};
+    await save({type:'delete',entity:'profesores',id}); AuditService.log('eliminó','profesor',p?`${p.nombre} ${p.apellidos}`:`#${id}`); return {ok:true};
   }
 };
 
 // ============================================================
 // GRUPOS, MATERIAS, INSCRIPCIONES, USUARIOS
 // ============================================================
-export const GruposService = { ...makeCrud('grupos','grupo'), async eliminar(id){ await delay(150); id=Number(id); const g=byId(DB.grupos,id); (DB.alumnos||[]).forEach(a=>{if(a.grupoId===id){a.grupoId=null;a.grado='Sin asignar'}}); DB.materiaGrupo=(DB.materiaGrupo||[]).filter(x=>x.grupoId!==id); DB.horarios=(DB.horarios||[]).filter(x=>x.grupoId!==id); DB.grupos=(DB.grupos||[]).filter(x=>x.id!==id); save({type:'delete',entity:'grupos',id}); AuditService.log('eliminó','grupo',g?.nombre||`#${id}`); return {ok:true}; } };
+export const GruposService = { ...makeCrud('grupos','grupo'), async eliminar(id){ await delay(150); id=Number(id); const g=byId(DB.grupos,id); (DB.alumnos||[]).forEach(a=>{if(a.grupoId===id){a.grupoId=null;a.grado='Sin asignar'}}); DB.materiaGrupo=(DB.materiaGrupo||[]).filter(x=>x.grupoId!==id); DB.horarios=(DB.horarios||[]).filter(x=>x.grupoId!==id); DB.grupos=(DB.grupos||[]).filter(x=>x.id!==id); await save({type:'delete',entity:'grupos',id}); AuditService.log('eliminó','grupo',g?.nombre||`#${id}`); return {ok:true}; } };
 export const InscripcionesService = makeCrud('inscripciones', 'inscripcion');
 export const UsuariosService = makeCrud('usuarios', 'usuario');
 export const TramitesService = {
@@ -628,7 +693,7 @@ export const CalendarioService = makeCrud('calendario', 'calendario');
 
 export const MateriasService = {
   ...makeCrud('materias', 'materia'),
-  async eliminar(id) { await delay(150); id=Number(id); const m=byId(DB.materias,id); DB.materiaGrupo=(DB.materiaGrupo||[]).filter(x=>x.materiaId!==id); DB.horarios=(DB.horarios||[]).filter(x=>x.materiaId!==id); DB.calificaciones=(DB.calificaciones||[]).filter(x=>x.materiaId!==id); DB.asistencias=(DB.asistencias||[]).filter(x=>x.materiaId!==id); DB.materias=(DB.materias||[]).filter(x=>x.id!==id); save({type:'delete',entity:'materias',id}); AuditService.log('eliminó','materia',m?.nombre||`#${id}`); return {ok:true}; },
+  async eliminar(id) { await delay(150); id=Number(id); const m=byId(DB.materias,id); DB.materiaGrupo=(DB.materiaGrupo||[]).filter(x=>x.materiaId!==id); DB.horarios=(DB.horarios||[]).filter(x=>x.materiaId!==id); DB.calificaciones=(DB.calificaciones||[]).filter(x=>x.materiaId!==id); DB.asistencias=(DB.asistencias||[]).filter(x=>x.materiaId!==id); DB.materias=(DB.materias||[]).filter(x=>x.id!==id); await save({type:'delete',entity:'materias',id}); AuditService.log('eliminó','materia',m?.nombre||`#${id}`); return {ok:true}; },
   async conProfesores(id) {
     await delay(80);
     const asignaciones = (DB.materiaGrupo || []).filter((mg) => mg.materiaId === Number(id));
@@ -687,7 +752,7 @@ export const CalificacionesService = {
       if (existente) existente.nota = num;
       else DB.calificaciones.push({ id: nextIdFor('calificacion'), alumnoId: Number(alumnoId), materiaId: Number(materiaId), periodo: Number(periodo), nota: num });
     });
-    save();
+    await save();
     return { ok: true };
   }
 };
@@ -725,7 +790,7 @@ export const AsistenciaService = {
       if (existente) existente.estado = estado;
       else DB.asistencias.push({ id: nextIdFor('asistencia'), alumnoId: Number(alumnoId), materiaId: Number(materiaId), fecha, estado });
     });
-    save();
+    await save();
     return { ok: true };
   },
   async historial(f = {}) {
@@ -782,7 +847,7 @@ export const AsistenciaProfesoresService = {
         });
       }
     });
-    save();
+    await save();
     return { ok: true };
   },
   async historial(f = {}) {
@@ -895,8 +960,8 @@ export const NotificacionesService = {
   // API anterior, conservada para compatibilidad.
   async porUsuario(usuarioId) { await delay(80); return (DB.notificaciones || []).filter(n => n.usuarioId === Number(usuarioId)).sort((a,b)=>b.fecha.localeCompare(a.fecha)); },
   async contarNoLeidas(usuarioId) { return (DB.notificaciones || []).filter(n => n.usuarioId === Number(usuarioId) && !n.leida).length; },
-  async marcarLeida(id) { const n=byId(DB.notificaciones,id); if(n){n.leida=true;save();} return {ok:true}; },
-  async marcarTodasLeidas(usuarioId) { (DB.notificaciones||[]).forEach(n=>{if(n.usuarioId===Number(usuarioId))n.leida=true});save();return{ok:true}; }
+  async marcarLeida(id) { const n=byId(DB.notificaciones,id); if(n){n.leida=true;await save();} return {ok:true}; },
+  async marcarTodasLeidas(usuarioId) { (DB.notificaciones||[]).forEach(n=>{if(n.usuarioId===Number(usuarioId))n.leida=true});await save();return{ok:true}; }
 };
 
 // ============================================================
@@ -944,8 +1009,7 @@ export const ConfigService = {
     const anterior = readInstitution(DB.config || {});
     const global = writeInstitution(data);
     DB.config = { ...DB.config, ...global };
-    try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch {}
-    emitDataChange({ type: 'config', entity: 'configuracion', global: true });
+    await save({ type: 'config', entity: 'configuracion', global: true });
     AuditService.log('actualizó','configuración', data.nombreColegio && data.nombreColegio !== anterior.nombreColegio ? `Institución: ${anterior.nombreColegio} → ${data.nombreColegio}` : 'Preferencias institucionales');
     return { ...DB.config };
   },
@@ -1005,4 +1069,5 @@ export const StatsService = {
 };
 
 export const _db = () => DB;
+export const _save = (detail = {}) => save(detail);
 export const _reset = reset;

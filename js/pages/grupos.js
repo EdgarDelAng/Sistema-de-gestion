@@ -1,4 +1,5 @@
 import { UI, escapeHtml } from '../core/ui.js';
+import { _save } from '../services/data.service.js';
 import {
   GruposService, ProfesoresService, AlumnosService,
   MateriasService, HorariosService, CalificacionesService
@@ -732,7 +733,7 @@ export async function renderGrupos(container) {
       // Eliminar el grupo
       db.grupos = (db.grupos || []).filter((g) => g.id !== Number(id));
 
-      localStorage.setItem('colegio_db_v5', JSON.stringify(db));
+      await _save({ type: 'update', entity: 'grupos' });
       UI.toast('Grupo eliminado', 'success');
       cargar();
     } catch (e) { UI.toast(e.message, 'error'); }
