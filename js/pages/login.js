@@ -40,6 +40,45 @@ function initLoginPage() {
   const loginMsg   = document.getElementById('loginMsg');
   const loginMsgTx = document.getElementById('loginMsgText');
   const forgotBtn  = document.getElementById('forgotBtn');
+  const roleInputs = [...form.querySelectorAll('input[name="rol"]')];
+  const roleHint   = document.getElementById('loginRoleHint');
+  const roleConfig = {
+    alumno:   { hint: 'Accede con tu usuario o matrícula de alumno.', placeholder: 'Usuario o matrícula de alumno' },
+    profesor: { hint: 'Accede con tu usuario, correo o matrícula de profesor.', placeholder: 'Usuario o matrícula de profesor' },
+    admin:    { hint: 'Accede con tu usuario de administrador.', placeholder: 'Usuario de administrador' }
+  };
+
+  // Evita que el navegador restaure las credenciales de la sesión anterior.
+  form.setAttribute('autocomplete', 'off');
+  usuario.setAttribute('autocomplete', 'off');
+  password.setAttribute('autocomplete', 'new-password');
+
+  function clearLoginForm() {
+    form.reset();
+    usuario.value = '';
+    password.value = '';
+    password.type = 'password';
+    roleInputs.forEach((input) => { input.checked = false; });
+    usuario.placeholder = 'Ingresa tu usuario o matrícula';
+    if (roleHint) roleHint.textContent = 'Selecciona tu tipo de usuario para continuar.';
+    pwdToggle.innerHTML = '<i class="fas fa-eye"></i>';
+    pwdToggle.setAttribute('aria-label', 'Mostrar contraseña');
+    pwdToggle.setAttribute('title', 'Mostrar contraseña');
+    hideError();
+    UI.buttonLoading(submitBtn, false);
+  }
+
+  // También limpia el formulario si el navegador recupera la página desde caché.
+  clearLoginForm();
+  window.addEventListener('pageshow', clearLoginForm);
+
+  roleInputs.forEach((input) => input.addEventListener('change', () => {
+    const config = roleConfig[input.value];
+    if (!input.checked || !config) return;
+    if (roleHint) roleHint.textContent = config.hint;
+    usuario.placeholder = config.placeholder;
+    hideError();
+  }));
 
   pwdToggle.addEventListener('click', () => {
     const show = password.type === 'password';
@@ -144,6 +183,13 @@ function initLoginPage() {
     e.preventDefault();
     hideError();
 
+    const selectedRole = form.querySelector('input[name="rol"]:checked')?.value;
+    if (!selectedRole) {
+      showError('Selecciona si ingresarás como alumno, profesor o administrador.');
+      roleInputs[0]?.focus();
+      return;
+    }
+
     const u = usuario.value.trim();
     const p = password.value;
 
@@ -156,7 +202,13 @@ function initLoginPage() {
     UI.buttonLoading(submitBtn, true);
     try {
       const { user } = await AuthService.login(u, p);
+      // El rol se determina mediante las credenciales; el selector nunca concede permisos.
+      if (user.rol !== selectedRole) {
+        throw new Error('Las credenciales no corresponden al tipo de acceso seleccionado.');
+      }
       Auth.save(user, false);
+      // La sesión queda guardada; los campos del formulario no deben conservarse.
+      clearLoginForm();
       UI.toast(`Bienvenido, ${user.nombre}`, 'success', 1400);
       setTimeout(() => location.replace('app.html'), 400);
     } catch (err) {
